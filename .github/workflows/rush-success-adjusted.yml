@@ -1,0 +1,35 @@
+name: Sunday Slate rush success and opponent-adjusted EPA
+
+on:
+  push:
+    paths:
+      - ".github/workflows/rush-success-adjusted.yml"
+      - "research/rush_success_adjusted.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  historical-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install real NFL data dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run pregame neutral-script success and adjusted EPA test
+        run: |
+          OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -m research.rush_success_adjusted --output rush_success_adjusted_results.json
+      - name: Preserve reproducible results and pregame derived game summaries
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfl-rush-success-adjusted-results
+          path: |
+            rush_success_adjusted_results.json
+            neutral_rushing_game_aggregates.csv
+          retention-days: 90

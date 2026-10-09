@@ -21,6 +21,8 @@
 | Lower points allowed per game | 435–322 | **57.46%** | 757 |
 | Both factors point to same team | 248–150 | **62.31%** | 398 |
 | Frozen Sunday Slate Elo on those **same 398 games** | 271–127 | **68.09%** | 398 |
+| All three factors agree (QBR + defense + Elo) | 222–101 | **68.73%** | 323 |
+| QBR + defense agree **against** Elo | 26–49 | **34.67%** | 75 |
 | When factors disagree: follow QB metric | 155–171 | **47.55%** | 326 |
 | When factors disagree: follow defense metric | 171–155 | **52.45%** | 326 |
 
@@ -43,7 +45,7 @@ These thresholds were inspected after the initial scenario; they are exploratory
 
 ### Main conclusion
 
-Higher QBR and lower PPG allowed are moderately predictive in isolation, and combined 62.31% on shared-direction games. **Neither replaces the existing Elo baseline**: on exactly the same 398 agreement games, Elo picked 271 winners (68.09%). Better defensive efficiency, quarterback matchup features, opponent strength, and interaction with Elo warrant controlled follow-up, not immediate model or betting-tier changes.
+Higher QBR and lower PPG allowed are moderately predictive in isolation, and combined 62.31% on shared-direction games. **Neither replaces the existing Elo baseline**: on exactly the same 398 agreement games, Elo picked 271 winners (68.09%). When both indicators *disagreed* with Elo, the QBR/defense choice won only 26 of 75 (34.67%); when all three agreed, the shared pick won 222 of 323 (68.73%). Better defensive efficiency, quarterback matchup features, opponent strength, and interaction with Elo warrant controlled follow-up, not immediate model or betting-tier changes.
 
 ### Limitations
 

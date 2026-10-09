@@ -45,3 +45,11 @@ def load_team_stats(season: int) -> pd.DataFrame:
     if not {"season", "week", "team"}.issubset(frame.columns):
         raise FeedError("Weekly team statistics are missing season, week, or team")
     return frame
+
+
+def load_player_stats(season: int) -> pd.DataFrame:
+    """Historical player boxes; optional research view, not a starter projection."""
+    frame = _load("load_player_stats", seasons=int(season), summary_level="week")
+    if not {"season", "week", "team", "position", "player_display_name"}.issubset(frame.columns):
+        raise FeedError("Player data missing fields for quarterback research")
+    return frame

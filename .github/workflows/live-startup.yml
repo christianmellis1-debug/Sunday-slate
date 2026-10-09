@@ -1,0 +1,58 @@
+name: Sunday Slate live startup diagnostic
+
+on:
+  push:
+    paths:
+      - "app.py"
+      - "sunday_slate/**"
+      - "requirements.txt"
+      - ".github/workflows/live-startup.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  startup-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install actual deployment dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Verify imports with real dependencies (no mock modules)
+        run: |
+          python - <<'PY'
+          import streamlit
+          import nflreadpy
+          from sunday_slate.data import (
+              FeedError, load_schedules, load_teams, load_team_stats,
+              load_player_stats, load_injury_reports,
+          )
+          from sunday_slate.ui import branding_map, css, game_card, prediction_panel, matchup_panel, market_panel, injury_panel
+          from sunday_slate.model import predict_regular_season
+          from sunday_slate.market import analyze_moneyline
+          from sunday_slate.matchup import qb_recent_profiles
+          from sunday_slate.injuries import reported_injuries
+          print("IMPORT_CONTRACT_OK")
+          print("nflreadpy:", getattr(nflreadpy, "__version__", "installed"))
+          for method in ("load_schedules", "load_teams", "load_team_stats", "load_player_stats", "load_injuries"):
+              print(method, "available:", callable(getattr(nflreadpy, method, None)))
+          PY
+      - name: Test actual Streamlit app startup (live feed)
+        run: |
+          python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+          app = AppTest.from_file("app.py", default_timeout=90).run()
+          if app.exception:
+              for err in app.exception:
+                  print("STREAMLIT_STARTUP_ERROR", err.message)
+              raise SystemExit(1)
+          print("STREAMLIT_STARTUP_OK")
+          print("Rendered markdown elements:", len(app.markdown))
+          PY

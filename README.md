@@ -32,11 +32,11 @@ An independent NFL prediction and matchup analytics app on Streamlit Community C
 - [Phase 3 research methodology and limitations](backtests/PHASE3_RESEARCH.md)
 - [Reproducible Phase 3 reference price sensitivity checks](backtests/phase3_value_research.py)
 
-**Injury status is not inferred**: The nflverse injury source is not consistently available after 2024. Missing lines and player status remain explicitly unknown. Advanced research metrics DO NOT alter the frozen Phase 2 prediction model until independently validated.
+**Game-week injury reports** are shown only when the current NFLverse feed contains a dated report-status record from the selected week before kickoff. Source unavailability or missing players never implies health or confirmed availability. No injury input changes the Phase 2 model.
 
 ### Not yet implemented
 
-A current verified injury feed, authenticated/timestamped sportsbook quotes, profitable validated betting selection tiers, player/QB injury adjustments to predictions, weather factors, parlays, bet tracker or postseason win-probability model. **A model pick or positive market difference is not a recommendation.**
+A fully audited current injury feed with verified kickoff snapshots, authenticated/timestamped sportsbook quotes, profitable validated betting selection tiers, player/QB injury adjustments to predictions, weather factors, parlays, bet tracker or postseason win-probability model. **A model pick or positive market difference is not a recommendation.**
 
 ## Deployment (free)
 

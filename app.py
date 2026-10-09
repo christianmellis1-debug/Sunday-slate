@@ -133,12 +133,6 @@ except FeedError:
 
 injury_data = pd.DataFrame()
 injury_source_available = False
-if stage == "REG" and season == now.year:
-    try:
-        injury_data = cached_injuries(season)
-        injury_source_available = not injury_data.empty
-    except FeedError:
-        st.caption("Current game-week injury feed could not be verified. No health conclusions will be drawn from missing entries.")
 
 picks = {}
 markets = {}
@@ -224,6 +218,14 @@ if stage == "REG":
 else:
     research_filter = "All matchups"
 
+load_injury_context = st.toggle("Load game-week injury reports (optional)", value=False, key="show_injury_reports") if stage == "REG" and season == now.year else False
+if load_injury_context:
+    try:
+        injury_data = cached_injuries(season)
+        injury_source_available = not injury_data.empty
+    except FeedError:
+        st.caption("Current game-week injury feed unavailable. No health conclusions will be drawn from missing entries.")
+
 st.caption(f"Showing {len(slate)} matchups · Times in CT · Prior-week football statistics · Reference market lines are not verified live odds")
 if slate.empty:
     st.info("No games match these filters. Try clearing your filters.")
@@ -241,7 +243,7 @@ else:
                                                 matchup_research(str(game["home_team"]), str(game["away_team"]), advanced, qb_profiles)))
                     panels.append(market_panel(str(game["home_team"]), str(game["away_team"]),
                                                 markets.get(str(game["game_id"])), str(game["game_id"]) in candidates))
-                    if not bool(game["completed"]) and season == now.year:
+                    if load_injury_context and not bool(game["completed"]) and season == now.year:
                         injury_research = reported_injuries(injury_data, season, selected, game["kickoff_ct"],
                                                             (str(game["home_team"]), str(game["away_team"])))
                         panels.append(injury_panel(str(game["home_team"]), str(game["away_team"]),

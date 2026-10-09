@@ -82,7 +82,7 @@ def _leading_passer_qbr(prior: pd.DataFrame, week: int, min_plays: int) -> dict[
     return leaders
 
 
-def test_games(games: pd.DataFrame, qbr: pd.DataFrame, years: tuple[int, ...] = (2023, 2024, 2025, 2026),
+def evaluate_games(games: pd.DataFrame, qbr: pd.DataFrame, years: tuple[int, ...] = (2023, 2024, 2025, 2026),
                min_plays: int = 30, min_def_games: int = 1) -> pd.DataFrame:
     """Grades only games with pregame available data. No within-week updates."""
     events = []
@@ -174,15 +174,15 @@ def main() -> None:
     print("SOURCES: nflverse games & ESPN Total QBR weekly. QBR release years:",sorted(set(qbr.season.dropna().astype(int).tolist())))
     print("NOTE: Quarterback is the previous 4-week highest-usage QB (NOT guaranteed current starter); Total QBR is approximate plays-weighted average.")
     print("DEFENSE: same-season opponents' PPG allowed in prior weeks; lower wins; ties/missing omitted.")
-    scored = test_games(games, qbr, min_plays=args.min_qb_plays, min_def_games=args.min_def_games)
+    scored = evaluate_games(games, qbr, min_plays=args.min_qb_plays, min_def_games=args.min_def_games)
     grouped = {
         "combined_2023_2025":summarize(scored,(2023,2024,2025)),
         "2023":summarize(scored,(2023,)),
         "2024":summarize(scored,(2024,)),
         "2025":summarize(scored,(2025,)),
         "2026_incomplete":summarize(scored,(2026,)),
-        "2023_2025_three_def_games":summarize(test_games(games,qbr, min_plays=args.min_qb_plays,min_def_games=3),(2023,2024,2025)),
-        "2023_2025_higher_100_qb_plays":summarize(test_games(games,qbr,min_plays=100,min_def_games=args.min_def_games),(2023,2024,2025)),
+        "2023_2025_three_def_games":summarize(evaluate_games(games,qbr, min_plays=args.min_qb_plays,min_def_games=3),(2023,2024,2025)),
+        "2023_2025_higher_100_qb_plays":summarize(evaluate_games(games,qbr,min_plays=100,min_def_games=args.min_def_games),(2023,2024,2025)),
     }
     report={"settings":{"min_qb_plays":args.min_qb_plays,"min_defense_games":args.min_def_games, "metric_defense":"pregame PPG allowed", "metric_qbr":"ESPN Total QBR previous four weeks, weighted mean by QB plays, highest usage prior QB"}, "results":grouped}
     output=json.dumps(report,indent=2,allow_nan=False)

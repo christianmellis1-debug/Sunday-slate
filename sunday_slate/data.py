@@ -53,3 +53,12 @@ def load_player_stats(season: int) -> pd.DataFrame:
     if not {"season", "week", "team", "position", "player_display_name"}.issubset(frame.columns):
         raise FeedError("Player data missing fields for quarterback research")
     return frame
+
+
+def load_injury_reports(season: int) -> pd.DataFrame:
+    """Optional nflverse injury feed. Missing/empty data never implies healthy."""
+    frame = _load("load_injuries", seasons=int(season))
+    needed = {"season", "week", "team", "report_status", "full_name", "date_modified"}
+    if not needed.issubset(frame.columns):
+        raise FeedError("Injury feed missing status or updated-at fields")
+    return frame

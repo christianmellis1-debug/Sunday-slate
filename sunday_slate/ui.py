@@ -9,6 +9,7 @@ import pandas as pd
 
 from sunday_slate.metrics import CENTRAL, record_label, time_label
 from sunday_slate.model import rationale
+from sunday_slate.market import american_text
 
 _STYLE = """
 <style>
@@ -37,6 +38,10 @@ div[data-testid="stMetric"]{background:#132137;border:1px solid #28405a;border-r
 .ss-prob{color:#69dfdd;font-weight:800;font-size:1.14rem}
 .ss-picksmall{font-size:.75rem;color:#98acc6;margin-top:.45rem}
 .ss-pickresult{color:#b9cadb;font-weight:700}
+.ss-research{font-size:.78rem;color:#aebed1;border-top:1px solid #223751;margin-top:.7rem;padding-top:.55rem}
+.ss-research summary{cursor:pointer;color:#79d6e8;font-weight:750;margin-bottom:.4rem}
+.ss-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem .8rem;padding:.45rem 0}
+.ss-chip{font-size:.72rem;color:#e3effd;background:#173044;border:1px solid #255c6b;border-radius:6px;padding:.2rem .4rem}
 </style>
 """
 
@@ -112,3 +117,62 @@ def prediction_panel(prediction: pd.Series) -> str:
             f'<span class="ss-prob">{prob:.1%} <span class="ss-pickresult">{result_text}</span></span>'
             f'</div><div class="ss-picksmall">{note}</div>'
             f'<div class="ss-picksmall">Research probability, not a sportsbook edge or guaranteed result.</div></div>')
+
+
+def _fmt_num(value: object, digits: int = 3, percent: bool = False) -> str:
+    try:
+        v = float(value)
+        if not pd.notna(v):
+            return "Unavailable"
+        return f"{v:+.{digits}f}" + ("%" if percent else "")
+    except (TypeError, ValueError):
+        return "Unavailable"
+
+
+def matchup_panel(home_team: str, away_team: str, research: dict) -> str:
+    """Accessible, optional pregame metrics without unsupported matchup claims."""
+    h = research.get("home") or {}
+    a = research.get("away") or {}
+    hq = research.get("home_qb") or {}
+    aq = research.get("away_qb") or {}
+    items = [
+        ("Offensive pass EPA / attempt", "pass_epa_per_att"),
+        ("Opponent pass EPA allowed / attempt", "pass_epa_allowed_per_att"),
+        ("Offensive rush EPA / carry", "rush_epa_per_carry"),
+        ("Opponent rush EPA allowed / carry", "rush_epa_allowed_per_carry"),
+        ("Completion % over expected", "pass_cpoe"),
+    ]
+    rows = []
+    for title, col in items:
+        hv = escape(_fmt_num(h.get(col), 2))
+        av = escape(_fmt_num(a.get(col), 2))
+        rows.append(f'<div>{escape(title)}</div><div><strong>{escape(away_team)}:</strong> {av} &nbsp; <strong>{escape(home_team)}:</strong> {hv}</div>')
+    qb = []
+    for team, info in ((away_team, aq), (home_team, hq)):
+        if info:
+            name = escape(str(info.get("name") or "Unknown"))
+            qb.append(f'<div>{escape(team)} most-used recent passer: <strong>{name}</strong> · YPA {escape(_fmt_num(info.get("yards_per_attempt"), 2))} · Last played W{int(info.get("last_week", 0))}</div>')
+        else:
+            qb.append(f'<div>{escape(team)} recent passer: unavailable</div>')
+    return (f'<details class="ss-research"><summary>Advanced matchup research (earlier weeks)</summary>'
+            f'<div class="ss-mini-grid">{"".join(rows)}</div>{"".join(qb)}'
+            '<div>Most-used passer is not a confirmed upcoming starter. EPA metrics are prior-game box-score proxies, not adjusted defensive ratings; injuries have not been verified. These statistics do not change model probabilities.</div>'
+            '</details>')
+
+
+def market_panel(home_team: str, away_team: str, market: dict | None, is_candidate: bool) -> str:
+    if not market:
+        return ('<details class="ss-research"><summary>Moneyline research</summary>'
+                '<div>Two-sided reference odds unavailable; cannot calculate a meaningful edge.</div></details>')
+    away = market["sides"]["away"]
+    home = market["sides"]["home"]
+    def line(team: str, side: dict) -> str:
+        return (f'<div>{escape(team)} <strong>{escape(american_text(side["odds"]))}</strong>'
+                f' · Model {side["model"]:.1%} · No-vig market {side["no_vig"]:.1%}'
+                f' · Difference {side["edge"]:+.1%}</div>')
+    flag = ('<span class="ss-chip">Experimental screen match · not recommended</span>' if is_candidate else
+            '<span class="ss-chip">Does not meet experimental screen</span>')
+    return (f'<details class="ss-research"><summary>Moneyline research · reference lines only</summary>'
+            f'{flag}{line(away_team, away)}{line(home_team, home)}'
+            '<div>Historical/untimestamped reference prices, not confirmed current DraftKings or executable odds. A positive model-to-market difference does not establish profitable value.</div>'
+            '</details>')

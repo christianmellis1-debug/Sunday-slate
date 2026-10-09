@@ -40,8 +40,15 @@ def season_options(schedule: pd.DataFrame) -> list[int]:
     return sorted({int(v) for v in values if 2000 <= v <= 2100}, reverse=True)
 
 
+POSTSEASON_TYPES = frozenset({"WC", "DIV", "CON", "SB"})
+
+
+def stage_mask(schedule: pd.DataFrame, game_type: str) -> pd.Series:
+    return schedule["game_type"].isin(POSTSEASON_TYPES) if game_type == "POST" else schedule["game_type"].eq(game_type)
+
+
 def weeks_for(schedule: pd.DataFrame, season: int, game_type: str = "REG") -> list[int]:
-    games = schedule[(schedule["season"] == season) & (schedule["game_type"] == game_type)]
+    games = schedule[(schedule["season"] == season) & stage_mask(schedule, game_type)]
     return sorted({int(n) for n in games["week"].dropna() if n > 0})
 
 
@@ -50,7 +57,7 @@ def default_week(schedule: pd.DataFrame, season: int, now: datetime, game_type: 
     weeks = weeks_for(schedule, season, game_type)
     if not weeks:
         return None
-    games = schedule[(schedule["season"] == season) & (schedule["game_type"] == game_type)].copy()
+    games = schedule[(schedule["season"] == season) & stage_mask(schedule, game_type)].copy()
     if "kickoff_ct" not in games.columns:
         games = with_kickoffs(games)
     now_ct = pd.Timestamp(now).tz_convert(CENTRAL) if pd.Timestamp(now).tzinfo else pd.Timestamp(now, tz=CENTRAL)

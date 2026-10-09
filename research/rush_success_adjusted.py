@@ -269,7 +269,7 @@ def grade(data: pd.DataFrame) -> dict:
 def report(frame: pd.DataFrame, years: tuple[int,...]) -> dict:
     data=frame[frame.season.isin(years)]
     return {
-        f"{kind}_{q:.6f}":grade(data[data.metric.eq(kind)&data.quantile.eq(round(q,6))])
+        f"{kind}_{q:.6f}":grade(data[data["metric"].eq(kind) & data["quantile"].eq(round(q,6))])
         for kind in ("success","adj_epa","combined") for q in THRESHOLDS
     }
 

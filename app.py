@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from sunday_slate.data import FeedError, load_schedules, load_teams, load_team_stats
-from sunday_slate.metrics import default_week, season_options, weeks_for, with_kickoffs, team_profiles
+from sunday_slate.metrics import default_week, season_options, stage_mask, weeks_for, with_kickoffs, team_profiles
 from sunday_slate.ui import branding_map, css, game_card
 
 st.set_page_config(page_title="Sunday Slate | NFL Football Analytics", page_icon="🏈", layout="wide", initial_sidebar_state="collapsed")
@@ -72,7 +72,7 @@ with selector3:
                             key=f"week_{season}_{stage}",
                             format_func=lambda x: f"Week {x}" if stage == "REG" else f"Playoff round {x}")
 
-slate = all_games[(all_games["season"] == season) & (all_games["game_type"] == stage) & (all_games["week"] == selected)].copy()
+slate = all_games[(all_games["season"] == season) & stage_mask(all_games, stage) & (all_games["week"] == selected)].copy()
 slate = slate.sort_values(["kickoff_ct", "game_id"], na_position="last")
 if slate.empty:
     st.info("No matchups in this slate.")

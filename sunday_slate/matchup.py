@@ -18,8 +18,6 @@ def _season_history(frame: pd.DataFrame | None, season: int, week: int) -> pd.Da
     work = work[work["season"].eq(season) & work["week"].lt(week)]
     if "season_type" in work:
         work = work[work["season_type"].eq("REG")]
-    if "game_id" in work:
-        work = work.drop_duplicates(subset=["game_id", "team"], keep=False)
     return work
 
 
@@ -56,6 +54,8 @@ def team_advanced_profiles(frame: pd.DataFrame | None, season: int, week: int) -
     work = _season_history(frame, season, week)
     if work.empty:
         return {}
+    if "game_id" in work:
+        work = work.drop_duplicates(subset=["game_id", "team"], keep=False)
     out = {}
     for team, group in work.groupby("team"):
         key = str(team)
@@ -63,7 +63,7 @@ def team_advanced_profiles(frame: pd.DataFrame | None, season: int, week: int) -
             "games": len(group),
             "pass_epa_per_att": _round(_rate(group, "passing_epa", "attempts")),
             "rush_epa_per_carry": _round(_rate(group, "rushing_epa", "carries")),
-            "pass_cpoe": _round(_rate(group, "passing_cpoe", "attempts")),  # replaced below with weighted CPOE
+            "pass_cpoe": None,
             "pass_epa_allowed_per_att": None,
             "rush_epa_allowed_per_carry": None,
         }

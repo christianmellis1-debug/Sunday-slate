@@ -159,6 +159,8 @@ def summarize(frame: pd.DataFrame, years: tuple[int, ...]) -> dict:
         "same_games_elo_baseline":stats(comparable,"elo_team") if "elo_team" in comparable else None,
         "qb_and_defense_agree":stats(agree,"qbr_team"),
         "qb_and_defense_agree_elo_baseline":stats(agree,"elo_team") if "elo_team" in agree else None,
+        "all_three_agree":stats(agree[agree.qbr_team.eq(agree.elo_team)],"qbr_team") if "elo_team" in agree else None,
+        "qbr_defense_against_elo":stats(agree[agree.qbr_team.ne(agree.elo_team)],"qbr_team") if "elo_team" in agree else None,
         "qb_and_defense_disagree_qb":stats(disagree,"qbr_team"),
         "qb_and_defense_disagree_defense":stats(disagree,"defense_team"),
         "qb_coverage_missing":int(s.qbr_team.isna().sum()),

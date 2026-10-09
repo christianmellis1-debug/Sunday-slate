@@ -21,9 +21,22 @@ An independent NFL prediction and matchup analytics app on Streamlit Community C
 - Full methodology and limits in [backtests/MODEL_VALIDATION.md](backtests/MODEL_VALIDATION.md)
 - An automated unit-test workflow; research scripts do not run automatically on every deploy
 
+## Phase 3 — Advanced matchup & market research (implemented)
+
+- Prior-week offensive EPA per passing attempt and rushing carry
+- Defensive EPA-allowed comparisons derived from earlier opposing team boxes
+- Recent (four previous weeks) highest-volume quarterback passer summaries, **not claimed as confirmed starters**
+- Historical moneyline reference lines, American odds math, no-vig market probabilities and model-minus-market differences
+- **Value Research** filter for unverified experimental screen matches, explicitly **not recommended bets**
+- Historic 2023–2025 reference-moneyline screen (>=5pp edge, >=60% model probability, -300 to +200): **50–43, -3.29 units, -3.54% reference-price ROI**. No profitability claim.
+- [Phase 3 research methodology and limitations](backtests/PHASE3_RESEARCH.md)
+- [Reproducible Phase 3 reference price sensitivity checks](backtests/phase3_value_research.py)
+
+**Injury status is not inferred**: The nflverse injury source is not consistently available after 2024. Missing lines and player status remain explicitly unknown. Advanced research metrics DO NOT alter the frozen Phase 2 prediction model until independently validated.
+
 ### Not yet implemented
 
-QB-level adjustments, verified injury/weather inputs, sportsbook odds, betting value picks and tiers, parlay finder, bet tracker or postseason win-probability model. **A model pick is not a betting recommendation.** Past win rates are not forecasts of future accuracy.
+A current verified injury feed, authenticated/timestamped sportsbook quotes, profitable validated betting selection tiers, player/QB injury adjustments to predictions, weather factors, parlays, bet tracker or postseason win-probability model. **A model pick or positive market difference is not a recommendation.**
 
 ## Deployment (free)
 
@@ -54,8 +67,8 @@ python -m backtests.run_backtest --output model_validation.json
 
 ## Data and licensing
 
-Uses [nflverse](https://github.com/nflverse) and [nflreadpy](https://github.com/nflverse/nflreadpy) for public football data. Most nflverse datasets are CC BY 4.0; nflreadpy is MIT. Logos are owned by the respective teams. There are no paid hosting or paid data requirements for Phases 1–2. Historical reports are snapshots and can change if sources correct past games.
+Uses [nflverse](https://github.com/nflverse) and [nflreadpy](https://github.com/nflverse/nflreadpy) for public football data. Most nflverse datasets are CC BY 4.0; nflreadpy is MIT. Logos are owned by the respective teams. There are no paid hosting or paid data requirements for Phases 1–3. Historical reports are snapshots and can change if sources correct past games.
 
 ## Next phase
 
-Validate additional pregame predictors (EPA, QB status, injuries, weather), perform out-of-sample comparative backtesting, and only then begin proposing NFL-specific odds-based filters and betting recommendations.
+Secure timestamped pre-kickoff sportsbook prices and a current injury feed, backtest opponent-adjusted EPA and quarterback availability against frozen baseline without same-week data leakage, then consider official betting tiers *only* with credible prospective evidence.

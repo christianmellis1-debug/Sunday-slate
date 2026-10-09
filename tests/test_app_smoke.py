@@ -59,6 +59,11 @@ def test_standalone_app_boot_with_nflverse_contract(monkeypatch):
     fake_nfl.load_teams = lambda: FakeFrame(pd.DataFrame([dict(team_abbr="DAL", team_name="Dallas Cowboys", team_logo_espn="https://a.espncdn.com/i/teamlogos/nfl/500/dal.png", team_color="#002244")]))
     monkeypatch.setitem(sys.modules, "streamlit", fake_st)
     monkeypatch.setitem(sys.modules, "nflreadpy", fake_nfl)
+    # Simulate Streamlit Cloud temporarily serving an older data helper while
+    # loading the newer app entrypoint. Optional feeds must not crash startup.
+    from sunday_slate import data as source_data
+    monkeypatch.delattr(source_data, "load_player_stats", raising=False)
+    monkeypatch.delattr(source_data, "load_injury_reports", raising=False)
     sys.modules.pop("app", None)
     importlib.import_module("app")
     assert len(fake_st.html_cards) >= 1

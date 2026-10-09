@@ -11,10 +11,12 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
 
-from sunday_slate.data import FeedError, load_schedules, load_teams, load_team_stats
+from sunday_slate.data import FeedError, load_schedules, load_teams, load_team_stats, load_player_stats
 from sunday_slate.metrics import default_week, season_options, stage_mask, weeks_for, with_kickoffs, team_profiles
-from sunday_slate.ui import branding_map, css, game_card, prediction_panel
+from sunday_slate.ui import branding_map, css, game_card, prediction_panel, matchup_panel, market_panel
 from sunday_slate.model import predict_regular_season, summary, VERSION
+from sunday_slate.market import analyze_moneyline, screen_side, historical_screen, historical_report, SCREEN_EDGE, SCREEN_MIN_PROB
+from sunday_slate.matchup import team_advanced_profiles, qb_recent_profiles, matchup_research
 
 st.set_page_config(page_title="Sunday Slate | NFL Football Analytics", page_icon="🏈", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(css(), unsafe_allow_html=True)
@@ -40,7 +42,17 @@ def cached_predictions(schedule: pd.DataFrame):
     return predict_regular_season(schedule)
 
 
-st.markdown('<div class="ss-topline">SIXTY LABS · NFL INTELLIGENCE</div><div class="ss-heading">Sunday Slate <span class="ss-pulse">PHASE 2</span></div><div class="ss-subtitle">Every NFL game. One smarter Sunday. Pregame NFL win probabilities, matchup profiles, and historical model results.</div>', unsafe_allow_html=True)
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_player_stats(season: int):
+    return load_player_stats(season)
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def cached_historical_screen(schedule: pd.DataFrame, predictions: pd.DataFrame):
+    return historical_screen(schedule, predictions)
+
+
+st.markdown('<div class="ss-topline">SIXTY LABS · NFL INTELLIGENCE</div><div class="ss-heading">Sunday Slate <span class="ss-pulse">PHASE 3</span></div><div class="ss-subtitle">Every NFL game. One smarter Sunday. Pregame NFL probabilities, advanced football matchups, and transparent market research.</div>', unsafe_allow_html=True)
 
 try:
     with st.spinner("Loading NFL schedule…"):
@@ -106,11 +118,29 @@ except FeedError:
 
 profiles = team_profiles(all_games, stats, season, selected)
 
+advanced = team_advanced_profiles(stats, season, selected) if stage == "REG" else {}
+try:
+    qb_profiles = qb_recent_profiles(cached_player_stats(season), season, selected) if stage == "REG" else {}
+except FeedError:
+    qb_profiles = {}
+    st.caption("Quarterback research feed unavailable. No starter status is inferred.")
+
 picks = {}
+markets = {}
+candidates = set()
 if stage == "REG":
     try:
         predictions = cached_predictions(all_games)
         picks = {str(p["game_id"]): p for _, p in predictions.iterrows()}
+        for _, g in slate.iterrows():
+            prediction = picks.get(str(g["game_id"]))
+            if prediction is None:
+                continue
+            market = analyze_moneyline(prediction["home_probability"], g.get("home_moneyline"), g.get("away_moneyline"))
+            if market is not None:
+                markets[str(g["game_id"])] = market
+                if screen_side(market) is not None:
+                    candidates.add(str(g["game_id"]))
         track = summary(predictions, season)
         if track["games"]:
             st.markdown('<div class="ss-section">Model performance · ' + VERSION + '</div>', unsafe_allow_html=True)
@@ -130,6 +160,25 @@ if stage == "REG":
             st.code(str(exc))
 else:
     st.caption("Postseason model picks are not published yet; the current backtest covers regular-season games only.")
+
+if stage == "REG" and picks:
+    st.markdown('<div class="ss-section">Value Research · experimental</div>', unsafe_allow_html=True)
+    st.caption("Market differences below are research signals only, not recommendations. The nflverse schedule supplies unverified reference moneylines, not sportsbook-specific, time-stamped quotes.")
+    try:
+        historic = cached_historical_screen(all_games, predictions)
+        aggregate = historical_report(historic)
+        with st.expander("Historical moneyline screen · 2023–2025 · reference prices"):
+            st.markdown("**Research filter:** model probability at least 60%, model versus no-vig market difference at least 5 percentage points, odds from -300 to +200. **This rule is NOT validated as profitable.**")
+            x, y, z = st.columns(3)
+            x.metric("Historical selections", aggregate["bets"])
+            y.metric("Wins–losses", f"{aggregate['wins']}–{aggregate['losses']}")
+            z.metric("Flat-stake ROI", f"{aggregate['roi']:+.1%}" if aggregate["roi"] is not None else "Unavailable")
+            st.caption("Reference prices from retrospective season schedules are NOT documented, pre-kickoff executable quotes; this is a retrospective sensitivity check, not a verified betting backtest.")
+            for yr in (2023, 2024, 2025):
+                yr_result = historical_report(historic[historic["season"].eq(yr)])
+                st.markdown(f"**{yr}:** {yr_result['wins']}–{yr_result['losses']} · ROI {yr_result['roi']:+.1%}" if yr_result["roi"] is not None else f"**{yr}:** No eligible reference lines")
+    except (ValueError, KeyError) as exc:
+        st.caption("Historical reference-odds research is not currently available; model predictions are unaffected.")
 
 st.markdown('<div class="ss-section">Browse matchups</div>', unsafe_allow_html=True)
 filter1, filter2, filter3 = st.columns([2, 1.2, 1])
@@ -153,7 +202,14 @@ if when != "All days":
     days = slate["kickoff_ct"].apply(lambda dt: dt.strftime("%A") if pd.notna(dt) else "Unknown")
     slate = slate[days.isin(["Tuesday", "Wednesday"] if when == "Other days" else [when])]
 
-st.caption(f"Showing {len(slate)} matchups · Times shown in America/Chicago (CT) · Team comparisons use earlier weeks only")
+if stage == "REG":
+    research_filter = st.selectbox("Matchup display", ["All matchups", "Experimental value research matches"], key="market_research_filter")
+    if research_filter != "All matchups":
+        slate = slate[slate["game_id"].astype(str).isin(candidates)]
+else:
+    research_filter = "All matchups"
+
+st.caption(f"Showing {len(slate)} matchups · Times in CT · Prior-week football statistics · Reference market lines are not verified live odds")
 if slate.empty:
     st.info("No games match these filters. Try clearing your filters.")
 else:
@@ -163,14 +219,21 @@ else:
             with col:
                 html = game_card(game, brands, profiles)
                 prediction = picks.get(str(game["game_id"]))
+                panels = []
                 if prediction is not None:
-                    html = html.replace("</article>", prediction_panel(prediction) + "</article>")
+                    panels.append(prediction_panel(prediction))
+                    panels.append(matchup_panel(str(game["home_team"]), str(game["away_team"]),
+                                                matchup_research(str(game["home_team"]), str(game["away_team"]), advanced, qb_profiles)))
+                    panels.append(market_panel(str(game["home_team"]), str(game["away_team"]),
+                                                markets.get(str(game["game_id"])), str(game["game_id"]) in candidates))
+                if panels:
+                    html = html.replace("</article>", "".join(panels) + "</article>")
                 st.markdown(html, unsafe_allow_html=True)
 
 with st.expander("About these stats and the current build"):
-    st.markdown("""**Phase 2:** schedules, recorded scores, team branding, pregame comparisons and results-based NFL probabilities. Team records and points-per-game are computed from previously completed regular-season games only. Passing and rushing yards per game come from the available earlier-week team summaries. A dash means the data was unavailable; it does not mean zero.
+    st.markdown("""**Phase 3:** schedules, recorded scores, team branding, pregame comparisons, research-only market screens and results-based NFL probabilities. Team records and points-per-game are computed from previously completed regular-season games only. Passing and rushing yards per game come from the available earlier-week team summaries. A dash means the data was unavailable; it does not mean zero.
 
-**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. No value picks, spread recommendations, injuries, weather tiers, parlays, or odds appear until verified and tested in later phases.
+**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. The Value Research panel shows *reference* moneylines from the source schedule, not DraftKings quotes or confirmed executable prices. The basic exploratory rule has not demonstrated consistent profitable returns. Injuries, confirmed starting quarterbacks, weather tiers, parlays, and official recommended picks remain unavailable until their feeds and betting performance are independently verified.
 
 **Source:** nflverse / nflreadpy. Most nflverse datasets are CC BY 4.0; attribute nflverse if redistributing. No betting is placed by this app. NFL and team marks belong to their respective owners.""")
 

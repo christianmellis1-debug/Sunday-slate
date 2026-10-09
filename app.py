@@ -11,7 +11,8 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
 
-from sunday_slate.data import FeedError, load_schedules, load_teams, load_team_stats, load_player_stats, load_injury_reports
+from sunday_slate import data as source_data
+from sunday_slate.data import FeedError, load_schedules, load_teams, load_team_stats
 from sunday_slate.metrics import default_week, season_options, stage_mask, weeks_for, with_kickoffs, team_profiles
 from sunday_slate.ui import branding_map, css, game_card, prediction_panel, matchup_panel, market_panel, injury_panel
 from sunday_slate.model import predict_regular_season, summary, VERSION
@@ -43,9 +44,17 @@ def cached_predictions(schedule: pd.DataFrame):
     return predict_regular_season(schedule)
 
 
+def _optional_feed(function_name: str, season: int):
+    """Optional feed mismatch must never prevent the dashboard from loading."""
+    loader = getattr(source_data, function_name, None)
+    if not callable(loader):
+        raise FeedError(f"{function_name} is not available in this deployed app version")
+    return loader(season)
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_player_stats(season: int):
-    return load_player_stats(season)
+    return _optional_feed("load_player_stats", season)
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -55,7 +64,7 @@ def cached_historical_screen(schedule: pd.DataFrame, predictions: pd.DataFrame):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_injuries(season: int):
-    return load_injury_reports(season)
+    return _optional_feed("load_injury_reports", season)
 
 
 st.markdown('<div class="ss-topline">SIXTY LABS · NFL INTELLIGENCE</div><div class="ss-heading">Sunday Slate <span class="ss-pulse">PHASE 3</span></div><div class="ss-subtitle">Every NFL game. One smarter Sunday. Pregame NFL probabilities, advanced football matchups, and transparent market research.</div>', unsafe_allow_html=True)

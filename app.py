@@ -11,12 +11,13 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
 
-from sunday_slate.data import FeedError, load_schedules, load_teams, load_team_stats, load_player_stats
+from sunday_slate.data import FeedError, load_schedules, load_teams, load_team_stats, load_player_stats, load_injury_reports
 from sunday_slate.metrics import default_week, season_options, stage_mask, weeks_for, with_kickoffs, team_profiles
-from sunday_slate.ui import branding_map, css, game_card, prediction_panel, matchup_panel, market_panel
+from sunday_slate.ui import branding_map, css, game_card, prediction_panel, matchup_panel, market_panel, injury_panel
 from sunday_slate.model import predict_regular_season, summary, VERSION
 from sunday_slate.market import analyze_moneyline, screen_side, historical_screen, historical_report, SCREEN_EDGE, SCREEN_MIN_PROB
 from sunday_slate.matchup import team_advanced_profiles, qb_recent_profiles, matchup_research
+from sunday_slate.injuries import reported_injuries
 
 st.set_page_config(page_title="Sunday Slate | NFL Football Analytics", page_icon="🏈", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(css(), unsafe_allow_html=True)
@@ -50,6 +51,11 @@ def cached_player_stats(season: int):
 @st.cache_data(ttl=1800, show_spinner=False)
 def cached_historical_screen(schedule: pd.DataFrame, predictions: pd.DataFrame):
     return historical_screen(schedule, predictions)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_injuries(season: int):
+    return load_injury_reports(season)
 
 
 st.markdown('<div class="ss-topline">SIXTY LABS · NFL INTELLIGENCE</div><div class="ss-heading">Sunday Slate <span class="ss-pulse">PHASE 3</span></div><div class="ss-subtitle">Every NFL game. One smarter Sunday. Pregame NFL probabilities, advanced football matchups, and transparent market research.</div>', unsafe_allow_html=True)
@@ -124,6 +130,15 @@ try:
 except FeedError:
     qb_profiles = {}
     st.caption("Quarterback research feed unavailable. No starter status is inferred.")
+
+injury_data = pd.DataFrame()
+injury_source_available = False
+if stage == "REG" and season == now.year:
+    try:
+        injury_data = cached_injuries(season)
+        injury_source_available = not injury_data.empty
+    except FeedError:
+        st.caption("Current game-week injury feed could not be verified. No health conclusions will be drawn from missing entries.")
 
 picks = {}
 markets = {}
@@ -226,6 +241,11 @@ else:
                                                 matchup_research(str(game["home_team"]), str(game["away_team"]), advanced, qb_profiles)))
                     panels.append(market_panel(str(game["home_team"]), str(game["away_team"]),
                                                 markets.get(str(game["game_id"])), str(game["game_id"]) in candidates))
+                    if not bool(game["completed"]) and season == now.year:
+                        injury_research = reported_injuries(injury_data, season, selected, game["kickoff_ct"],
+                                                            (str(game["home_team"]), str(game["away_team"])))
+                        panels.append(injury_panel(str(game["home_team"]), str(game["away_team"]),
+                                                   injury_research, source_available=injury_source_available))
                 if panels:
                     html = html.replace("</article>", "".join(panels) + "</article>")
                 st.markdown(html, unsafe_allow_html=True)
@@ -233,7 +253,7 @@ else:
 with st.expander("About these stats and the current build"):
     st.markdown("""**Phase 3:** schedules, recorded scores, team branding, pregame comparisons, research-only market screens and results-based NFL probabilities. Team records and points-per-game are computed from previously completed regular-season games only. Passing and rushing yards per game come from the available earlier-week team summaries. A dash means the data was unavailable; it does not mean zero.
 
-**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. The Value Research panel shows *reference* moneylines from the source schedule, not DraftKings quotes or confirmed executable prices. The basic exploratory rule has not demonstrated consistent profitable returns. Injuries, confirmed starting quarterbacks, weather tiers, parlays, and official recommended picks remain unavailable until their feeds and betting performance are independently verified.
+**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. The Value Research panel shows *reference* moneylines from the source schedule, not DraftKings quotes or confirmed executable prices. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Confirmed starting quarterbacks, weather tiers, parlays, and official recommended picks remain unavailable until independently verified.
 
 **Source:** nflverse / nflreadpy. Most nflverse datasets are CC BY 4.0; attribute nflverse if redistributing. No betting is placed by this app. NFL and team marks belong to their respective owners.""")
 

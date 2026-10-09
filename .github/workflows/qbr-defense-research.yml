@@ -1,0 +1,33 @@
+name: Sunday Slate QBR defense historical research
+
+on:
+  push:
+    paths:
+      - ".github/workflows/qbr-defense-research.yml"
+      - "research/test_qbr_defense.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nfl-qbr-defense:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install analysis dependencies
+        run: python -m pip install pandas==2.3.3
+      - name: Historical pregame QBR versus defense
+        run: |
+          python -m research.test_qbr_defense --output qbr_defense_results.json
+      - name: Preserve result artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qbr-defense-results
+          path: qbr_defense_results.json
+          retention-days: 30

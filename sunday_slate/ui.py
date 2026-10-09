@@ -8,6 +8,7 @@ import re
 import pandas as pd
 
 from sunday_slate.metrics import CENTRAL, record_label, time_label
+from sunday_slate.model import rationale
 
 _STYLE = """
 <style>
@@ -30,6 +31,12 @@ _STYLE = """
 .ss-section{color:#c3d7e7;font-weight:750;font-size:.92rem;margin-top:1.2rem;margin-bottom:.5rem}
 .ss-foot{font-size:.78rem;color:#8ca5bb;margin-top:.6rem}
 div[data-testid="stMetric"]{background:#132137;border:1px solid #28405a;border-radius:12px;padding:.8rem 1rem}
+.ss-pick{border-top:1px solid #23354d;margin-top:.8rem;padding-top:.9rem}
+.ss-picktop{display:flex;gap:.6rem;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.ss-pickname{color:#d8eef7;font-size:.9rem;font-weight:750}
+.ss-prob{color:#69dfdd;font-weight:800;font-size:1.14rem}
+.ss-picksmall{font-size:.75rem;color:#98acc6;margin-top:.45rem}
+.ss-pickresult{color:#b9cadb;font-weight:700}
 </style>
 """
 
@@ -91,3 +98,17 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
       <div class="ss-matchup">{_team(away, brands, ap)}<div class="ss-middle">{middle}</div>{_team(home, brands, hp)}</div>
       <div class="ss-bot"><span>Previous weeks: <b>PPG {_num(ap,"ppg")} vs {_num(hp,"ppg")}</b></span><span>Allowed: <b>{_num(ap,"opp_ppg")} vs {_num(hp,"opp_ppg")}</b></span><span>Pass YPG: <b>{_num(ap,"pass_ypg")} vs {_num(hp,"pass_ypg")}</b></span><span>Rush YPG: <b>{_num(ap,"rush_ypg")} vs {_num(hp,"rush_ypg")}</b></span></div>
     </article>'''
+
+
+def prediction_panel(prediction: pd.Series) -> str:
+    """Appends a research forecast to an existing matchup card (no betting tips)."""
+    name = escape(str(prediction["predicted_winner"]))
+    prob = float(prediction["pick_probability"])
+    result = str(prediction["pick_result"])
+    note = escape(rationale(prediction))
+    result_text = f" · {escape(result)}" if result != "Pending" else " · Not final"
+    return (f'<div class="ss-pick"><div class="ss-picktop">'
+            f'<span class="ss-pickname">Model winner: {name}</span>'
+            f'<span class="ss-prob">{prob:.1%} <span class="ss-pickresult">{result_text}</span></span>'
+            f'</div><div class="ss-picksmall">{note}</div>'
+            f'<div class="ss-picksmall">Research probability, not a sportsbook edge or guaranteed result.</div></div>')

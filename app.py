@@ -13,7 +13,8 @@ import streamlit as st
 
 from sunday_slate.data import FeedError, load_schedules, load_teams, load_team_stats
 from sunday_slate.metrics import default_week, season_options, stage_mask, weeks_for, with_kickoffs, team_profiles
-from sunday_slate.ui import branding_map, css, game_card
+from sunday_slate.ui import branding_map, css, game_card, prediction_panel
+from sunday_slate.model import predict_regular_season, summary, VERSION
 
 st.set_page_config(page_title="Sunday Slate | NFL Football Analytics", page_icon="🏈", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(css(), unsafe_allow_html=True)
@@ -34,7 +35,12 @@ def cached_team_stats(season: int):
     return load_team_stats(season)
 
 
-st.markdown('<div class="ss-topline">SIXTY LABS · NFL INTELLIGENCE</div><div class="ss-heading">Sunday Slate <span class="ss-pulse">PHASE 1</span></div><div class="ss-subtitle">Every NFL game. One smarter Sunday. Schedules and matchup profiles, with pregame predictions coming later.</div>', unsafe_allow_html=True)
+@st.cache_data(ttl=1800, show_spinner=False)
+def cached_predictions(schedule: pd.DataFrame):
+    return predict_regular_season(schedule)
+
+
+st.markdown('<div class="ss-topline">SIXTY LABS · NFL INTELLIGENCE</div><div class="ss-heading">Sunday Slate <span class="ss-pulse">PHASE 2</span></div><div class="ss-subtitle">Every NFL game. One smarter Sunday. Pregame NFL win probabilities, matchup profiles, and historical model results.</div>', unsafe_allow_html=True)
 
 try:
     with st.spinner("Loading NFL schedule…"):
@@ -100,6 +106,31 @@ except FeedError:
 
 profiles = team_profiles(all_games, stats, season, selected)
 
+picks = {}
+if stage == "REG":
+    try:
+        predictions = cached_predictions(all_games)
+        picks = {str(p["game_id"]): p for _, p in predictions.iterrows()}
+        track = summary(predictions, season)
+        if track["games"]:
+            st.markdown('<div class="ss-section">Model performance · ' + VERSION + '</div>', unsafe_allow_html=True)
+            a, b, c = st.columns(3)
+            a.metric("Straight-up record", f"{track['wins']}-{track['losses']}")
+            b.metric("Accuracy", f"{track['accuracy']:.1%}")
+            c.metric("Graded NFL games", track["games"])
+        with st.expander("Historical model validation (regular season)"):
+            st.caption("Parameters selected on 2019–2022 regular seasons; 2023–2025 held out. Predictions for every week use earlier weeks only. Records are straight-up, not ATS or ROI.")
+            for year in (2023, 2024, 2025, 2026):
+                result = summary(predictions, year)
+                if result["games"]:
+                    st.markdown(f"**{year}** · {result['wins']}-{result['losses']} · {result['accuracy']:.1%} · Brier {result['brier']:.3f}")
+    except (ValueError, TypeError) as exc:
+        st.warning("Model predictions unavailable because historical data failed validation. Scores and team comparisons are unaffected.")
+        with st.expander("Model validation details"):
+            st.code(str(exc))
+else:
+    st.caption("Postseason model picks are not published yet; the current backtest covers regular-season games only.")
+
 st.markdown('<div class="ss-section">Browse matchups</div>', unsafe_allow_html=True)
 filter1, filter2, filter3 = st.columns([2, 1.2, 1])
 with filter1:
@@ -130,12 +161,16 @@ else:
         columns = st.columns(2)
         for col, (_, game) in zip(columns, slate.iloc[idx:idx + 2].iterrows()):
             with col:
-                st.markdown(game_card(game, brands, profiles), unsafe_allow_html=True)
+                html = game_card(game, brands, profiles)
+                prediction = picks.get(str(game["game_id"]))
+                if prediction is not None:
+                    html = html.replace("</article>", prediction_panel(prediction) + "</article>")
+                st.markdown(html, unsafe_allow_html=True)
 
 with st.expander("About these stats and the current build"):
-    st.markdown("""**Phase 1:** schedules, recorded scores, team branding and pregame comparisons. Team records and points-per-game are computed from previously completed regular-season games only. Passing and rushing yards per game come from the available earlier-week team summaries. A dash means the data was unavailable; it does not mean zero.
+    st.markdown("""**Phase 2:** schedules, recorded scores, team branding, pregame comparisons and results-based NFL probabilities. Team records and points-per-game are computed from previously completed regular-season games only. Passing and rushing yards per game come from the available earlier-week team summaries. A dash means the data was unavailable; it does not mean zero.
 
-**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. No win probabilities, value picks, spread recommendations, weather tier, parlays, or odds appear until verified and tested in later phases.
+**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. No value picks, spread recommendations, injuries, weather tiers, parlays, or odds appear until verified and tested in later phases.
 
 **Source:** nflverse / nflreadpy. Most nflverse datasets are CC BY 4.0; attribute nflverse if redistributing. No betting is placed by this app. NFL and team marks belong to their respective owners.""")
 

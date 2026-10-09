@@ -294,6 +294,15 @@ def main():
         "discovery_2019_2022":report(predictions,TRAIN),
         "holdout_2023_2025":report(predictions,TEST),
         "diagnostic_2026_ytd":report(predictions,CURRENT),
+        "by_year_at_primary_25pct": {
+            str(year): {
+                kind:grade(predictions[
+                    predictions["season"].eq(year) &
+                    predictions["metric"].eq(kind) &
+                    predictions["quantile"].eq(.25)
+                ]) for kind in ("success", "adj_epa", "combined")
+            } for year in TRAIN + TEST + CURRENT
+        },
         "decision":"No prediction engine change unless reproducible gains against Elo and season-robust independently timestamped ATS evidence.",
     }
     print("SUCCESS_ADJUSTED_JSON_BEGIN\n"+json.dumps(result,indent=2,allow_nan=False)+"\nSUCCESS_ADJUSTED_JSON_END",flush=True)

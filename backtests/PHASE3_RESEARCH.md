@@ -8,7 +8,7 @@ Phase 3 adds a **research layer**, not unverified betting picks. The straight-up
 
 **Quarterbacks:** player-level weekly stats, trailing four previous weeks; most-used passer by pass attempts (YPA and interceptions). It does NOT establish the upcoming starter or injury status.
 
-**Injuries:** Not integrated into live predictions. The nflverse historical injury feed became unavailable after 2024, so using it for 2025/2026 would be misleading. We will not infer that a player is healthy just because the injury feed lacks a row. A current, auditable provider and kickoff-time snapshots are needed.
+**Injuries:** The currently documented nflverse feed reports daily updates. The app optionally shows dated injury report statuses for the selected future regular-season matchup when matching source records exist from the same game week and no later than kickoff. Reports can be incomplete/stale; the app does not assume an unlisted player is healthy, nor does it turn a report into a verified lineup. The feed is **not** used as a predictive feature. Full timestamped availability audits remain necessary.
 
 **Market research:** odds are sourced from home_moneyline/away_moneyline in the public nflverse schedule, and are clearly marked *reference prices*. They are NOT certified live, time-stamped sportsbook prices or verified DraftKings offers. Both valid sides must exist; no single-sided markets or invalid spreads. Moneyline probabilities normalize the overround (vig) before comparison.
 
@@ -50,7 +50,7 @@ The above analysis was computed from the publicly available NFLverse `nfldata/da
 
 ## Proposed prerequisite before official betting tiers
 
-1. Record true pre-kickoff (ideally timestamped) sportsbook odds, then build an immutable weekly selection ledger.
+1. Record true pre-kickoff timestamped sportsbook odds, validate injury report snapshots, then build an immutable weekly selection ledger.
 2. Validate strong football covariates (quarterback availability, opponent-adjusted EPA, injuries, rest, weather) through prior-week training and chronological untouched seasons.
 3. Compare Brier, log loss, straight-up accuracy, and betting ROI to the frozen Phase 2 baseline.
 4. Keep incomplete odds/health feeds unpublished; permit *no selection* rather than filling a target card.

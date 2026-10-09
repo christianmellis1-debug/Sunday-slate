@@ -2,7 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import pandas as pd
 
-from sunday_slate.metrics import game_kickoff, with_kickoffs, team_profiles, default_week, time_label
+from sunday_slate.metrics import game_kickoff, with_kickoffs, team_profiles, default_week, time_label, weeks_for, stage_mask
 from sunday_slate.ui import game_card, branding_map
 
 
@@ -71,3 +71,16 @@ def test_card_escapes_untrusted_team_name():
     assert '<img src=x onerror=alert(1)>' not in html
     assert '&lt;img' in html
     assert "12:00 PM CT" in html
+
+
+def test_postseason_grouping_uses_nflverse_round_codes():
+    data = schedule()
+    extra = pd.DataFrame([
+        dict(game_id="2025_19_X_Y", season=2025, game_type="WC", week=19, gameday="2026-01-10", gametime="13:00", away_team="DAL", home_team="NYG", away_score=24, home_score=20),
+        dict(game_id="2025_20_X_Y", season=2025, game_type="DIV", week=20, gameday="2026-01-17", gametime="13:00", away_team="NYG", home_team="DAL", away_score=15, home_score=23),
+        dict(game_id="2025_22_X_Y", season=2025, game_type="SB", week=22, gameday="2026-02-08", gametime="18:30", away_team="NYG", home_team="DAL", away_score=10, home_score=21),
+    ])
+    data = pd.concat([data, extra], ignore_index=True)
+    assert weeks_for(data, 2025, "POST") == [19, 20, 22]
+    assert int(stage_mask(data, "POST").sum()) == 3
+    assert int(stage_mask(data, "REG").sum()) == 4

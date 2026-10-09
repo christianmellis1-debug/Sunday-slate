@@ -22,6 +22,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from sunday_slate.model import predict_regular_season
+
 GAMES_URL = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv"
 QBR_URL = "https://github.com/nflverse/nflverse-data/releases/download/espn_data/qbr_week_level.csv"
 
@@ -154,7 +156,9 @@ def summarize(frame: pd.DataFrame, years: tuple[int, ...]) -> dict:
         "better_defense_ppg_allowed":stats(s,"defense_team"),
         "same_games_qbr":stats(comparable,"qbr_team"),
         "same_games_defense":stats(comparable,"defense_team"),
+        "same_games_elo_baseline":stats(comparable,"elo_team") if "elo_team" in comparable else None,
         "qb_and_defense_agree":stats(agree,"qbr_team"),
+        "qb_and_defense_agree_elo_baseline":stats(agree,"elo_team") if "elo_team" in agree else None,
         "qb_and_defense_disagree_qb":stats(disagree,"qbr_team"),
         "qb_and_defense_disagree_defense":stats(disagree,"defense_team"),
         "qb_coverage_missing":int(s.qbr_team.isna().sum()),
@@ -175,6 +179,10 @@ def main() -> None:
     print("NOTE: Quarterback is the previous 4-week highest-usage QB (NOT guaranteed current starter); Total QBR is approximate plays-weighted average.")
     print("DEFENSE: same-season opponents' PPG allowed in prior weeks; lower wins; ties/missing omitted.")
     scored = evaluate_games(games, qbr, min_plays=args.min_qb_plays, min_def_games=args.min_def_games)
+    # Same-game comparison: the original, unchanged Sunday Slate Elo model.
+    frozen = predict_regular_season(games)
+    lookup = frozen.set_index("game_id")["predicted_winner"]
+    scored["elo_team"] = scored.game_id.map(lookup)
     grouped = {
         "combined_2023_2025":summarize(scored,(2023,2024,2025)),
         "2023":summarize(scored,(2023,)),

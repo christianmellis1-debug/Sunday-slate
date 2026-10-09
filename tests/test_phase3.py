@@ -8,7 +8,8 @@ from sunday_slate.market import (
     analyze_moneyline, screen_side, historical_screen, historical_report,
 )
 from sunday_slate.matchup import team_advanced_profiles, qb_recent_profiles, matchup_research
-from sunday_slate.ui import matchup_panel, market_panel
+from sunday_slate.ui import matchup_panel, market_panel, injury_panel
+from sunday_slate.injuries import reported_injuries
 
 
 def market_schedules():
@@ -112,3 +113,27 @@ def test_panels_escape_team_and_player_text():
     assert "<img src=x>" not in markup
     assert "&lt;img" in markup
     assert "not confirmed current DraftKings" in markup or "not confirmed current DraftKings" in markup
+
+
+def test_injury_snapshot_uses_only_same_week_and_pre_kickoff():
+    frame = pd.DataFrame([
+        dict(season=2026, week=5, team="DAL", full_name="Joe RB", report_status="Out", date_modified="2026-10-03T15:00:00Z"),
+        dict(season=2026, week=6, team="DAL", full_name="Joe RB", report_status="Questionable", date_modified="2026-10-10T15:00:00Z"),
+        dict(season=2026, week=6, team="DAL", full_name="Joe RB", report_status="Out", date_modified="2026-10-11T13:00:00Z"),
+        dict(season=2026, week=6, team="PHI", full_name="<b>Q</b>", report_status="Doubtful", date_modified="2026-10-10T15:00:00Z"),
+        dict(season=2026, week=6, team="PHI", full_name="No Status", report_status="", date_modified="2026-10-10T15:00:00Z"),
+    ])
+    kickoff = pd.Timestamp("2026-10-11T12:00:00Z")
+    result = reported_injuries(frame, 2026, 6, kickoff, ("DAL", "PHI"))
+    assert len(result["DAL"]) == 1 and result["DAL"][0]["status"] == "Questionable"
+    assert len(result["PHI"]) == 1
+    html = injury_panel("DAL", "PHI", result)
+    assert "<b>Q</b>" not in html and "&lt;b&gt;Q&lt;/b&gt;" in html
+    assert "not a healthy designation" in html or "Not included in model" in html
+
+
+def test_missing_injury_data_cannot_mark_teams_healthy():
+    output = reported_injuries(None, 2026, 6, "2026-10-11T12:00:00Z", ("DAL", "PHI"))
+    assert output == {"DAL": [], "PHI": []}
+    rendered = injury_panel("DAL", "PHI", output, source_available=False)
+    assert "unavailable" in rendered and "not be treated as healthy" in rendered

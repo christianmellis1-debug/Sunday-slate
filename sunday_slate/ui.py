@@ -176,3 +176,22 @@ def market_panel(home_team: str, away_team: str, market: dict | None, is_candida
             f'{flag}{line(away_team, away)}{line(home_team, home)}'
             '<div>Historical/untimestamped reference prices, not confirmed current DraftKings or executable odds. A positive model-to-market difference does not establish profitable value.</div>'
             '</details>')
+
+
+def injury_panel(home_team: str, away_team: str, reports: dict[str, list[dict]],
+                 source_available: bool = True) -> str:
+    if not source_available:
+        return ('<details class="ss-research"><summary>Injury report · source unavailable</summary>'
+                '<div>Current official player statuses are unverified. Missing data must not be treated as healthy.</div></details>')
+    parts = []
+    for team in (away_team, home_team):
+        rows = reports.get(team, [])
+        if rows:
+            for item in rows:
+                parts.append(f'<div><strong>{escape(team)} · {escape(str(item["name"]))}</strong> — '
+                             f'{escape(str(item["status"]))} · Source updated: {escape(str(item["updated_utc"]))}</div>')
+        else:
+            parts.append(f'<div>{escape(team)}: No dated qualifying game-status entries from this feed (not a healthy designation).</div>')
+    return ('<details class="ss-research"><summary>Game-week injury reports · informational</summary>'
+            + "".join(parts) +
+            '<div>Only source records dated before kickoff, for the selected game week, are included. Report status may change. Not included in model probabilities or verified starting lineups.</div></details>')

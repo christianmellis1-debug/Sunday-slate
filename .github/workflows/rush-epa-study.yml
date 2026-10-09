@@ -1,0 +1,32 @@
+name: Sunday Slate run EPA matchup hypothesis
+
+on:
+  push:
+    paths:
+      - ".github/workflows/rush-epa-study.yml"
+      - "research/run_defense_rush_epa.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rush-epa-study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install NFL statistical research dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run pregame defensive EPA versus weak rushing offense
+        run: python -m research.run_defense_rush_epa --output rush_epa_results.json
+      - name: Preserve complete backtest result
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfl-rush-epa-hypothesis
+          path: rush_epa_results.json
+          retention-days: 60

@@ -1,0 +1,36 @@
+name: Sunday Slate Test 2 pass rush vs protection
+
+on:
+  push:
+    paths:
+      - "research/pass_rush_protection_test2.py"
+      - ".github/workflows/pass-rush-protection-test2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pass-rush-protection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install research dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install "scikit-learn>=1.5,<2.0" polars pyarrow
+      - name: Run week-frozen pressure and offensive line backtest
+        run: |
+          python -m research.pass_rush_protection_test2 --output pass_rush_protection_test2_results.json
+      - name: Save complete study
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pass-rush-protection-test2
+          path: pass_rush_protection_test2_results.json
+          retention-days: 30
+          if-no-files-found: warn

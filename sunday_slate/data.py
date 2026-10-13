@@ -62,3 +62,20 @@ def load_injury_reports(season: int) -> pd.DataFrame:
     if not needed.issubset(frame.columns):
         raise FeedError("Injury feed missing status or updated-at fields")
     return frame
+
+
+def load_qb_depth_charts(season: int) -> pd.DataFrame:
+    """As-of timestamped NFLverse depth chart; 2025+ only.
+
+    The historical 2024-and-earlier weekly depth-chart product has no
+    publication timestamp and is *not* a valid live pregame source.
+    """
+    if int(season) < 2025:
+        raise FeedError("Dated QB depth charts are only available from the 2025 season")
+    frame = _load("load_depth_charts", seasons=int(season))
+    required = {"dt", "team", "gsis_id", "pos_abb", "pos_rank"}
+    if not required.issubset(frame.columns):
+        raise FeedError("Dated QB depth chart source missing timestamp or starter identifiers")
+    # Filter immediately: hundreds of thousands of non-QB depth rows.
+    frame = frame[frame["pos_abb"].astype(str).eq("QB")].copy()
+    return frame

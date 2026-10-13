@@ -112,7 +112,8 @@ def test_panels_escape_team_and_player_text():
     markup = market_panel("<img src=x>", "B", analyze_moneyline(.65, 120, -140), True)
     assert "<img src=x>" not in markup
     assert "&lt;img" in markup
-    assert "not confirmed current DraftKings" in markup or "not confirmed current DraftKings" in markup
+    assert "DraftKings-only prices" in markup
+    assert "not confirmed executable quotes" in markup
 
 
 def test_injury_snapshot_uses_only_same_week_and_pre_kickoff():

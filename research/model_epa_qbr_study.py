@@ -10,7 +10,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sunday_slate.model import predict_regular_season
-from research.test_qbr_defense import load_games, load_qbr, _leading_passer_qbr, normalized
+from research.test_qbr_defense import load_qbr, _leading_passer_qbr, normalized
+from sunday_slate.data import load_schedules
 
 TRAIN=(2019,2020,2021,2022)
 TEST=(2023,2024,2025)
@@ -197,7 +198,9 @@ def main():
     parser.add_argument('--qbr')
     parser.add_argument('--output',default='epa_qbr_model_results.json')
     args=parser.parse_args()
-    games=load_games(args.games)
+    # Use EXACT production schedule identity and unaltered nflverse team codes
+    # for Elo to ensure the research baseline agrees with Sunday Slate.
+    games=pd.read_csv(args.games,low_memory=False) if args.games else load_schedules()
     print('Schedule games loaded:',len(games),flush=True)
     team=load_stats(args.team)
     print('Weekly EPA team lines:',len(team),flush=True)

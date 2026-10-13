@@ -369,6 +369,19 @@ def assess(schedule,stats):
                  "raw_edge":round(float(g.raw_edge),4),
                  "adjusted_edge":round(float(g.adjusted_edge),4)}
                 for g in delta.itertuples(index=False)]
+    # Exploratory deployment-safety sensitivity: do not apply the challenger
+    # until both teams have >=N previous regular-season games. These gates
+    # are inspected AFTER the holdout; none is an independently validated fix.
+    gates={}
+    for period,years in {"2023-2025_holdout":TEST,"2026_preliminary":CURRENT}.items():
+        sub=data[data.season.isin(years)].copy()
+        gates[period]={}
+        for n in (3,4,5,6):
+            p=np.where(sub.min_games>=n,sub.elo_raw_plus_adjusted,
+                       sub.home_probability)
+            gates[period][f"min_{n}_completed_games"]={
+                "model_games":int(sub.min_games.ge(n).sum()),
+                **evaluate_predictions(sub,p)}
     return {"method":{"train":list(TRAIN),"holdout":list(TEST),
                       "stat":"qb_hit OR sack per pass dropback (not all true pressures)",
                       "source":"nflverse play-by-play source, week-frozen raw/adjusted pressure",
@@ -376,7 +389,7 @@ def assess(schedule,stats):
                       "ats":"nflverse reference closing spread; not verified FanDuel/DraftKings",
                       "production_model_unchanged":True},
             "coverage":coverage,
-            "aggregates":len(stats),"fitted":fitted,"results":reports,"matched_audits":audits}
+            "aggregates":len(stats),"fitted":fitted,"results":reports,"matched_audits":audits,"sensitivity_gates":gates}
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--stats")

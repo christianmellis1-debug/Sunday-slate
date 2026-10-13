@@ -208,7 +208,17 @@ def main():
         result = grade_archive(schedule)
     else:
         stats = load_stats()
-        result = archive_next_week(schedule, stats, now)
+        try:
+            result = archive_next_week(schedule, stats, now)
+        except FileExistsError as exc:
+            # Scheduled reruns must never mutate an existing frozen snapshot.
+            result = {"status": "existing snapshot retained", "reason": str(exc)}
+        except RuntimeError as exc:
+            if ("No complete, unplayed NFL week" not in str(exc)
+                    and "First game is already today" not in str(exc)):
+                raise
+            # Continue with grading on non-slate/holiday weeks.
+            result = {"status": "no safe upcoming pregame snapshot", "reason": str(exc)}
     Path(args.output).write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
     print(json.dumps(result, indent=2, allow_nan=False))
 

@@ -134,13 +134,17 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
             '<div class="ss-watch-caveat">Pregame statistical matchup flag · '
             'not a tier, betting recommendation, or change to Elo.</div>'
         )
-    return f'''<article class="ss-match{highlight}">
-      {special_banner}{watch_banner}
-      <div class="ss-matchtop"><span>{day}</span><span>{status}{neutral}</span></div>
-      <div class="ss-matchup">{_team(away, brands, ap)}<div class="ss-middle">{middle}</div>{_team(home, brands, hp)}</div>
-      <div class="ss-bot"><span>Previous weeks: <b>PPG {_num(ap,"ppg")} vs {_num(hp,"ppg")}</b></span><span>Allowed: <b>{_num(ap,"opp_ppg")} vs {_num(hp,"opp_ppg")}</b></span><span>Pass YPG: <b>{_num(ap,"pass_ypg")} vs {_num(hp,"pass_ypg")}</b></span><span>Rush YPG: <b>{_num(ap,"rush_ypg")} vs {_num(hp,"rush_ypg")}</b></span></div>
-      {watch_caveat}
-    </article>'''
+    # Keep the card in one HTML block: blank optional banners plus indentation
+    # make Markdown treat the matchup or appended prediction as a code block.
+    return (
+        f'<article class="ss-match{highlight}">'
+        f'{special_banner}{watch_banner}'
+        f'<div class="ss-matchtop"><span>{day}</span><span>{status}{neutral}</span></div>'
+        f'<div class="ss-matchup">{_team(away, brands, ap)}<div class="ss-middle">{middle}</div>{_team(home, brands, hp)}</div>'
+        f'<div class="ss-bot"><span>Previous weeks: <b>PPG {_num(ap,"ppg")} vs {_num(hp,"ppg")}</b></span><span>Allowed: <b>{_num(ap,"opp_ppg")} vs {_num(hp,"opp_ppg")}</b></span><span>Pass YPG: <b>{_num(ap,"pass_ypg")} vs {_num(hp,"pass_ypg")}</b></span><span>Rush YPG: <b>{_num(ap,"rush_ypg")} vs {_num(hp,"rush_ypg")}</b></span></div>'
+        f'{watch_caveat}'
+        f'</article>'
+    )
 
 
 def prediction_panel(prediction: pd.Series) -> str:

@@ -1,0 +1,32 @@
+name: Research NFL home field advantage proposal
+
+on:
+  push:
+    paths:
+      - ".github/workflows/home-field-nfl-proposed.yml"
+      - "research/home_field_nfl_proposed.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install statistical packages
+        run: python -m pip install -r requirements.txt
+      - name: Run NFL proposed rule backtest
+        run: python -m research.home_field_nfl_proposed
+      - name: Preserve NFL proposed-rule results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfl-home-field-proposed-results
+          path: nfl_home_field_proposed_results.json
+          retention-days: 30

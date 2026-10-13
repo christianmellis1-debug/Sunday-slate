@@ -26,26 +26,29 @@ An independent NFL prediction and matchup analytics app on Streamlit Community C
 - Prior-week offensive EPA per passing attempt and rushing carry
 - Defensive EPA-allowed comparisons derived from earlier opposing team boxes
 - Recent (four previous weeks) highest-volume quarterback passer summaries, **not claimed as confirmed starters**
-- Historical moneyline reference lines, American odds math, no-vig market probabilities and model-minus-market differences
+- DraftKings-only pregame moneylines and spreads via TheRundown (private free-tier API key required; five-minute delay). No alternative-book or nflverse odds fallback.
 - **Value Research** filter for unverified experimental screen matches, explicitly **not recommended bets**
-- Historic 2023–2025 reference-moneyline screen (>=5pp edge, >=60% model probability, -300 to +200): **50–43, -3.29 units, -3.54% reference-price ROI**. No profitability claim.
+- Historical reference-price backtests remain in research code, but are no longer presented as DraftKings results. There is no verified DraftKings historical ROI.
 - [Phase 3 research methodology and limitations](backtests/PHASE3_RESEARCH.md)
 - [Reproducible Phase 3 reference price sensitivity checks](backtests/phase3_value_research.py)
 
-**Ben Johnson Special (research-only flag):** When the nflverse schedule's reference spread shows Ben Johnson's team as a favorite by **0.5 to 3 points**, the matchup card is labeled and can be filtered using **Ben Johnson Special only**. Uses known 2022–2024 Detroit (offensive coordinator) and 2025–2026 Chicago (head coach) seasons; other years are not assumed. An unavailable reference spread produces no flag. This signal does **not** alter model predictions or indicate verified live odds, profitability, or a recommended bet. The exploratory ATS history motivating the flag has not been independently reproduced in this repository.
+**DraftKings Coaching Trends (research-only flags):** Matchup cards highlight **Ben Johnson Special** (his team favored by 0.5–3), **Schottenheimer Favorite** (Dallas favored by at least 0.5), and **Stefanski Mid-Range Favorite** (his team favored by 3.5–7). Each is available as a filter. The app requires a positive DraftKings-only feed match (affiliate ID 19), never invents a missing line, and never uses historical nflverse odds to trigger a flag. Historical cover rates are exploratory rather than validated betting edges; flags never change Elo picks.
 
 **Game-week injury reports** are shown only when the current NFLverse feed contains a dated report-status record from the selected week before kickoff. Source unavailability or missing players never implies health or confirmed availability. No injury input changes the Phase 2 model.
 
 ### Not yet implemented
 
-A fully audited current injury feed with verified kickoff snapshots, authenticated/timestamped sportsbook quotes, profitable validated betting selection tiers, player/QB injury adjustments to predictions, weather factors, parlays, bet tracker or postseason win-probability model. **A model pick or positive market difference is not a recommendation.**
+A fully audited current injury feed, a verified historical DraftKings closing-line archive, validated profitable betting selection tiers, player/QB injury adjustments, weather factors, parlays, bet tracker or postseason win-probability model. **A model pick or positive market difference is not a recommendation.**
 
 ## Deployment (free)
 
 1. Open https://share.streamlit.io and create or edit an app.
 2. Select repository **christianmellis1-debug/Sunday-slate**, branch **main**, entrypoint **app.py**.
 3. Deploy on Streamlit Community Cloud with Python 3.11.
-4. The app fetches the updated nflverse schedule; scores are not guaranteed to be live.
+4. For **personal/internal testing**, obtain a no-credit-card API key from [TheRundown](https://auth.therundown.io/signup/) (Free: DraftKings pregame prices delayed by five minutes).
+5. In Streamlit app settings > **Secrets**, add `THERUNDOWN_API_KEY = "YOUR_KEY"`. Do not commit or display the key.
+6. The app uses nflverse for schedules and scores only. Betting lines and coaching signals use the DraftKings affiliate ID exclusively; absent/blocked/unmatched DraftKings quotes are shown as unavailable. No cross-book fallback is allowed.
+7. **Licensing:** The provider's Free plan is for testing, not unrestricted commercial end-user odds display. Confirm display rights before making a public/commercial odds-display service.
 
 Local development:
 
@@ -69,7 +72,7 @@ python -m backtests.run_backtest --output model_validation.json
 
 ## Data and licensing
 
-Uses [nflverse](https://github.com/nflverse) and [nflreadpy](https://github.com/nflverse/nflreadpy) for public football data. Most nflverse datasets are CC BY 4.0; nflreadpy is MIT. Logos are owned by the respective teams. There are no paid hosting or paid data requirements for Phases 1–3. Historical reports are snapshots and can change if sources correct past games.
+Uses [nflverse](https://github.com/nflverse) and [nflreadpy](https://github.com/nflverse/nflreadpy) for public football data. Most nflverse datasets are CC BY 4.0; nflreadpy is MIT. Logos are owned by the respective teams. There are no paid hosting requirements; the optional DraftKings feed has a free delayed pregame tier suitable for personal testing, not public commercial display. Historical reports are snapshots and can change if sources correct past games.
 
 ## Next phase
 

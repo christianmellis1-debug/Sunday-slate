@@ -6,6 +6,8 @@ No picks, probabilities, or gambling ROI are calculated in this phase.
 from __future__ import annotations
 
 from datetime import datetime
+from time import sleep
+import os
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -16,11 +18,12 @@ from sunday_slate.data import FeedError, load_schedules, load_teams, load_team_s
 from sunday_slate.metrics import default_week, season_options, stage_mask, weeks_for, with_kickoffs, team_profiles
 from sunday_slate.ui import branding_map, css, game_card, prediction_panel, matchup_panel, market_panel, injury_panel
 from sunday_slate.model import predict_regular_season, summary, VERSION
-from sunday_slate.market import analyze_moneyline, screen_side, historical_screen, historical_report, SCREEN_EDGE, SCREEN_MIN_PROB
+from sunday_slate.market import analyze_moneyline, screen_side
 from sunday_slate.matchup import team_advanced_profiles, qb_recent_profiles, matchup_research
 from sunday_slate.injuries import reported_injuries
 from sunday_slate.watch import game_watch_flags, STAT_COLUMNS as WATCH_STAT_COLUMNS
-from sunday_slate.coach_flags import ben_johnson_flags
+from sunday_slate.coach_flags import coaching_flags
+from sunday_slate.draftkings import DKFeedError, fetch_date, match_games, utc_dates
 
 st.set_page_config(page_title="Sunday Slate | NFL Football Analytics", page_icon="🏈", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(css(), unsafe_allow_html=True)
@@ -67,8 +70,8 @@ def cached_player_stats(season: int):
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def cached_historical_screen(schedule: pd.DataFrame, predictions: pd.DataFrame):
-    return historical_screen(schedule, predictions)
+def cached_dk_snapshot(day: str, key: str):
+    return fetch_date(day, key)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -142,7 +145,36 @@ except FeedError:
 
 profiles = team_profiles(all_games, stats, season, selected)
 
-coach_specials = ben_johnson_flags(all_games, season, selected) if stage == "REG" else {}
+# Private credential: never publish this value, or persist it to GitHub.
+try:
+    dk_api_key = str(st.secrets.get("THERUNDOWN_API_KEY", "") or os.environ.get("THERUNDOWN_API_KEY", "")).strip()
+except (AttributeError, KeyError, FileNotFoundError, RuntimeError):
+    dk_api_key = str(os.environ.get("THERUNDOWN_API_KEY", "")).strip()
+
+dk_by_game = {}
+dk_error = None
+if stage == "REG" and dk_api_key:
+    dates = utc_dates(slate)
+    if dates:
+        try:
+            snapshots = {}
+            for i, day in enumerate(dates):
+                # The free provider tier permits at most one API request/second.
+                if i:
+                    sleep(1.05)
+                snapshots[day] = cached_dk_snapshot(day, dk_api_key)
+            dk_by_game = match_games(slate, snapshots)
+        except DKFeedError:
+            dk_error = "DraftKings pregame feed unavailable. No odds-based signals will be shown."
+elif stage == "REG":
+    dk_error = "DraftKings feed not configured. Set THERUNDOWN_API_KEY in Streamlit Secrets to enable odds-based flags."
+
+if dk_error:
+    st.caption(dk_error)
+
+coach_markers = coaching_flags(slate, season, selected, dk_by_game) if stage == "REG" else {}
+coach_specials = {gid: marker for gid, markers in coach_markers.items()
+                  for marker in markers if marker["name"] == "BEN JOHNSON SPECIAL"}
 
 watch_flags = {}
 if stage == "REG" and selected >= 4:
@@ -175,7 +207,8 @@ if stage == "REG":
             prediction = picks.get(str(g["game_id"]))
             if prediction is None:
                 continue
-            market = analyze_moneyline(prediction["home_probability"], g.get("home_moneyline"), g.get("away_moneyline"))
+            dk = dk_by_game.get(str(g["game_id"]), {})
+            market = analyze_moneyline(prediction["home_probability"], dk.get("home_moneyline"), dk.get("away_moneyline"))
             if market is not None:
                 markets[str(g["game_id"])] = market
                 if screen_side(market) is not None:
@@ -201,28 +234,17 @@ else:
     st.caption("Postseason model picks are not published yet; the current backtest covers regular-season games only.")
 
 if stage == "REG" and picks:
-    st.markdown('<div class="ss-section">Value Research · experimental</div>', unsafe_allow_html=True)
-    st.caption("Market differences below are research signals only, not recommendations. The nflverse schedule supplies unverified reference moneylines, not sportsbook-specific, time-stamped quotes.")
-    try:
-        historic = cached_historical_screen(all_games, predictions)
-        aggregate = historical_report(historic)
-        with st.expander("Historical moneyline screen · 2023–2025 · reference prices"):
-            st.markdown("**Research filter:** model probability at least 60%, model versus no-vig market difference at least 5 percentage points, odds from -300 to +200. **This rule is NOT validated as profitable.**")
-            x, y, z = st.columns(3)
-            x.metric("Historical selections", aggregate["bets"])
-            y.metric("Wins–losses", f"{aggregate['wins']}–{aggregate['losses']}")
-            z.metric("Flat-stake ROI", f"{aggregate['roi']:+.1%}" if aggregate["roi"] is not None else "Unavailable")
-            st.caption("Reference prices from retrospective season schedules are NOT documented, pre-kickoff executable quotes; this is a retrospective sensitivity check, not a verified betting backtest.")
-            for yr in (2023, 2024, 2025):
-                yr_result = historical_report(historic[historic["season"].eq(yr)])
-                st.markdown(f"**{yr}:** {yr_result['wins']}–{yr_result['losses']} · ROI {yr_result['roi']:+.1%}" if yr_result["roi"] is not None else f"**{yr}:** No eligible reference lines")
-    except (ValueError, KeyError) as exc:
-        st.caption("Historical reference-odds research is not currently available; model predictions are unaffected.")
+    st.markdown('<div class="ss-section">DraftKings value research · experimental</div>', unsafe_allow_html=True)
+    st.caption("All moneyline comparisons use DraftKings pregame odds exclusively. "
+               "The free feed is at least five minutes delayed; this is not a live executable quote. "
+               "No historical DraftKings odds have been verified for a retrospective ROI calculation, "
+               "so historical reference-price ROI is not displayed.")
 
 if watch_flags:
     st.caption(f"★ {len(watch_flags)} Game to Watch matchup(s) match the pregame Home Field Advantage pattern · research flag only, not a pick.")
-if coach_specials:
-    st.caption(f"★ {len(coach_specials)} Ben Johnson Special matchup(s) · team favored by 0.5–3 points on the nflverse reference spread; not verified live odds or a betting pick.")
+if coach_markers:
+    st.caption(f"★ {sum(len(markers) for markers in coach_markers.values())} DraftKings Coaching Trend(s) · "
+               "Ben Johnson Special, Schottenheimer Favorite or Stefanski Mid-Range Favorite · research only.")
 
 st.markdown('<div class="ss-section">Browse matchups</div>', unsafe_allow_html=True)
 filter1, filter2, filter3 = st.columns([2, 1.2, 1])
@@ -247,11 +269,19 @@ if when != "All days":
     slate = slate[days.isin(["Tuesday", "Wednesday"] if when == "Other days" else [when])]
 
 if stage == "REG":
-    research_filter = st.selectbox("Matchup display", ["All matchups", "Game to Watch only", "Ben Johnson Special only", "Experimental value research matches"], key="market_research_filter")
+    research_filter = st.selectbox("Matchup display", ["All matchups", "Game to Watch only", "Ben Johnson Special only", "Schottenheimer Favorite only", "Stefanski Mid-Range Favorite only", "Any Coaching Trend", "Experimental value research matches"], key="market_research_filter")
     if research_filter == "Game to Watch only":
         slate = slate[slate["game_id"].astype(str).isin(watch_flags)]
     elif research_filter == "Ben Johnson Special only":
         slate = slate[slate["game_id"].astype(str).isin(coach_specials)]
+    elif research_filter in ("Schottenheimer Favorite only", "Stefanski Mid-Range Favorite only"):
+        label = ("SCHOTTENHEIMER FAVORITE" if research_filter.startswith("Schottenheimer")
+                 else "STEFANSKI MID-RANGE FAVORITE")
+        matching = {gid for gid, markers in coach_markers.items()
+                    if any(m["name"] == label for m in markers)}
+        slate = slate[slate["game_id"].astype(str).isin(matching)]
+    elif research_filter == "Any Coaching Trend":
+        slate = slate[slate["game_id"].astype(str).isin(coach_markers)]
     elif research_filter == "Experimental value research matches":
         slate = slate[slate["game_id"].astype(str).isin(candidates)]
 else:
@@ -265,7 +295,7 @@ if load_injury_context:
     except FeedError:
         st.caption("Current game-week injury feed unavailable. No health conclusions will be drawn from missing entries.")
 
-st.caption(f"Showing {len(slate)} matchups · Times in CT · Prior-week football statistics · Reference market lines are not verified live odds")
+st.caption(f"Showing {len(slate)} matchups · Times in CT · Prior-week football statistics · Odds source: DraftKings only, delayed pregame data when configured")
 if slate.empty:
     st.info("No games match these filters. Try clearing your filters.")
 else:
@@ -275,7 +305,8 @@ else:
             with col:
                 html = game_card(game, brands, profiles,
                                  watch=watch_flags.get(str(game["game_id"])),
-                                 ben_johnson=coach_specials.get(str(game["game_id"])))
+                                 coaching=coach_markers.get(str(game["game_id"])),
+                                 dk_quote=dk_by_game.get(str(game["game_id"])))
                 prediction = picks.get(str(game["game_id"]))
                 panels = []
                 if prediction is not None:
@@ -296,11 +327,11 @@ else:
 with st.expander("About these stats and the current build"):
     st.markdown("""**Phase 3:** schedules, recorded scores, team branding, pregame comparisons, research-only market screens and results-based NFL probabilities. Team records and points-per-game are computed from previously completed regular-season games only. Passing and rushing yards per game come from the available earlier-week team summaries. A dash means the data was unavailable; it does not mean zero.
 
-**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. The Value Research panel shows *reference* moneylines from the source schedule, not DraftKings quotes or confirmed executable prices. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Confirmed starting quarterbacks, weather tiers, parlays, and official recommended picks remain unavailable until independently verified.
+**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. All displayed odds-based coaching flags and value research use *DraftKings-only* pregame prices through TheRundown, not nflverse reference odds. Free-tier prices are delayed and are not confirmed executable quotes. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Confirmed starting quarterbacks, weather tiers, parlays, and official recommended picks remain unavailable until independently verified.
 
 **Game to Watch:** An independent informational flag for non-neutral home teams with both stronger pregame offensive and defensive statistical ratings and an advantage magnitude from 0.25 up to (but not including) 0.50. Requires at least three earlier regular-season games and complete two-team weekly records. The flag does not depend on moneylines; it is not a tier or betting recommendation and never overrides the Elo prediction. Flags may change if historical source data is revised or incomplete previous-week results arrive.
 
-**Ben Johnson Special:** Research-only label for Ben Johnson's team when favored by 0.5 to 3 points in the nflverse schedule's reference spread. For 2022–2024, Detroit corresponds to his offensive coordinator tenure; for 2025–2026, Chicago corresponds to his head-coaching tenure. Missing or different lines do not qualify. Reference spreads are not verified live sportsbook quotes, and the historical ATS trend has not been independently reproduced in this app. The flag never changes a model pick or establishes a betting advantage.
+**DraftKings Coaching Trends:** Ben Johnson Special when his team is favored by 0.5–3; Schottenheimer Favorite when Dallas is favored by at least 0.5; Stefanski Mid-Range Favorite when his team is favored by 3.5–7. All require DraftKings-attributed prices; if those are absent, no flag appears. Coaching flags do not change Elo and are not proven betting edges.
 
 **Source:** nflverse / nflreadpy. Most nflverse datasets are CC BY 4.0; attribute nflverse if redistributing. No betting is placed by this app. NFL and team marks belong to their respective owners.""")
 

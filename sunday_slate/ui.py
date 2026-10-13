@@ -31,6 +31,9 @@ _STYLE = """
 .ss-ben-johnson-banner{margin:-.12rem 0 .85rem;display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;font-size:.78rem}
 .ss-ben-johnson-pill{background:#0b453e;border:1px solid #369d92;border-radius:999px;color:#b5fff2;padding:.29rem .65rem;font-weight:850;letter-spacing:.035em}
 .ss-ben-johnson-note{color:#c9efe8;font-weight:620}
+.ss-coach-row{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center;margin:.15rem 0 .8rem;font-size:.77rem}
+.ss-coach-flag{background:#3b2a58;color:#ecd9ff;border:1px solid #9d7dc9;border-radius:999px;padding:.28rem .6rem;font-weight:840}
+.ss-dk-quote{font-size:.76rem;color:#9ee7df;margin:.3rem 0 .7rem;font-weight:600}
 
 .ss-matchtop{display:flex;justify-content:space-between;gap:.7rem;align-items:center;color:var(--ss-muted);font-size:.78rem;margin-bottom:.95rem}
 .ss-matchup{display:grid;grid-template-columns:1fr auto 1fr;gap:.6rem;align-items:center;text-align:center;}
@@ -99,7 +102,8 @@ def _num(profile: dict | None, key: str, suffix: str = "") -> str:
 
 
 def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict],
-              watch: dict | None = None, ben_johnson: dict | None = None) -> str:
+              watch: dict | None = None, ben_johnson: dict | None = None,
+              coaching: list[dict] | None = None, dk_quote: dict | None = None) -> str:
     home = str(game["home_team"]); away = str(game["away_team"])
     hp = profiles.get(home); ap = profiles.get(away)
     complete = bool(game["completed"])
@@ -110,17 +114,30 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
     status = "Final" if complete else ("Result pending" if pending else "Scheduled")
     neutral = " · Neutral site" if str(game.get("location", "")).lower() == "neutral" else ""
     flagged = isinstance(watch, dict) and "magnitude" in watch
-    special = isinstance(ben_johnson, dict) and "favored_by" in ben_johnson
+    markers = list(coaching or ([] if ben_johnson is None else [ben_johnson]))
+    special = bool(markers)
     highlight = (" ss-watch" if flagged else "") + (" ss-ben-johnson" if special else "")
     special_banner = ""
-    if special:
-        points = float(ben_johnson["favored_by"])
-        role = escape(str(ben_johnson.get("role") or "Coach"))
-        special_banner = (
-            '<div class="ss-ben-johnson-banner"><span class="ss-ben-johnson-pill">★ BEN JOHNSON SPECIAL</span>'
-            f'<span class="ss-ben-johnson-note">Favored by {points:g} · {role} · '
-            'nflverse reference spread, not verified live · research only</span></div>'
-        )
+    if markers:
+        parts = []
+        for marker in markers:
+            name = escape(str(marker.get("name") or "BEN JOHNSON SPECIAL"))
+            points = float(marker["favored_by"])
+            team = escape(str(marker.get("team") or ""))
+            parts.append(f'<span class="ss-coach-flag">★ {name}</span>'
+                         f'<span class="ss-ben-johnson-note">{team} favored by {points:g}'
+                         ' · DraftKings only · experimental</span>')
+        special_banner = '<div class="ss-coach-row">' + "".join(parts) + '</div>'
+    dk_banner = ""
+    if isinstance(dk_quote, dict) and dk_quote.get("source") == "DraftKings":
+        hs, aw = dk_quote.get("home_spread"), dk_quote.get("away_spread")
+        def show_spread(value):
+            return "Unavailable" if value is None else f"{float(value):+g}"
+        # Data returned by TheRundown may be delayed, even after refresh.
+        updated = escape(str(dk_quote.get("updated_at") or "timestamp unavailable"))
+        dk_banner = (f'<div class="ss-dk-quote">DraftKings spread: '
+                     f'{escape(away)} {show_spread(aw)} · {escape(home)} {show_spread(hs)}'
+                     f' · Quote updated {updated} · delayed pregame data</div>')
     watch_banner = ""
     watch_caveat = ""
     if flagged:
@@ -138,7 +155,7 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
     # make Markdown treat the matchup or appended prediction as a code block.
     return (
         f'<article class="ss-match{highlight}">'
-        f'{special_banner}{watch_banner}'
+        f'{special_banner}{watch_banner}{dk_banner}'
         f'<div class="ss-matchtop"><span>{day}</span><span>{status}{neutral}</span></div>'
         f'<div class="ss-matchup">{_team(away, brands, ap)}<div class="ss-middle">{middle}</div>{_team(home, brands, hp)}</div>'
         f'<div class="ss-bot"><span>Previous weeks: <b>PPG {_num(ap,"ppg")} vs {_num(hp,"ppg")}</b></span><span>Allowed: <b>{_num(ap,"opp_ppg")} vs {_num(hp,"opp_ppg")}</b></span><span>Pass YPG: <b>{_num(ap,"pass_ypg")} vs {_num(hp,"pass_ypg")}</b></span><span>Rush YPG: <b>{_num(ap,"rush_ypg")} vs {_num(hp,"rush_ypg")}</b></span></div>'
@@ -205,7 +222,7 @@ def matchup_panel(home_team: str, away_team: str, research: dict) -> str:
 def market_panel(home_team: str, away_team: str, market: dict | None, is_candidate: bool) -> str:
     if not market:
         return ('<details class="ss-research"><summary>Moneyline research</summary>'
-                '<div>Two-sided reference odds unavailable; cannot calculate a meaningful edge.</div></details>')
+                '<div>DraftKings moneylines unavailable; no other sportsbook is substituted.</div></details>')
     away = market["sides"]["away"]
     home = market["sides"]["home"]
     def line(team: str, side: dict) -> str:
@@ -214,9 +231,9 @@ def market_panel(home_team: str, away_team: str, market: dict | None, is_candida
                 f' · Difference {side["edge"]:+.1%}</div>')
     flag = ('<span class="ss-chip">Experimental screen match · not recommended</span>' if is_candidate else
             '<span class="ss-chip">Does not meet experimental screen</span>')
-    return (f'<details class="ss-research"><summary>Moneyline research · reference lines only</summary>'
+    return (f'<details class="ss-research"><summary>DraftKings pregame moneyline research</summary>'
             f'{flag}{line(away_team, away)}{line(home_team, home)}'
-            '<div>Historical/untimestamped reference prices, not confirmed current DraftKings or executable odds. A positive model-to-market difference does not establish profitable value.</div>'
+            '<div>DraftKings-only prices via a delayed pregame feed; not confirmed executable quotes. A positive model-to-market difference does not prove betting value.</div>'
             '</details>')
 
 

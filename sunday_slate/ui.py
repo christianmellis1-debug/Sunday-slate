@@ -254,3 +254,64 @@ def injury_panel(home_team: str, away_team: str, reports: dict[str, list[dict]],
     return ('<details class="ss-research"><summary>Game-week injury reports · informational</summary>'
             + "".join(parts) +
             '<div>Only source records dated before kickoff, for the selected game week, are included. Report status may change. Not included in model probabilities or verified starting lineups.</div></details>')
+
+
+
+def qb_availability_panel(game_context: dict | None) -> str:
+    """Transparent QB projections, reports and research-only replacement quality."""
+    if not isinstance(game_context, dict) or not game_context.get("available"):
+        return ('<details class="ss-research"><summary>Quarterback availability</summary>'
+                '<div>Pregame QB context unavailable. The original Elo pick is unchanged.</div></details>')
+    sections=[]
+    for team, info in (game_context.get("teams") or {}).items():
+        team_name=escape(str(team))
+        expected=info.get("expected") or {}
+        projected=info.get("projected") or {}
+        backup=info.get("depth_backup") or {}
+        previous=info.get("previous") or {}
+        name=escape(str(expected.get("name") or "Unknown"))
+        label=escape(str(info.get("classification") or "Unconfirmed"))
+        sections.append(f'<div style="margin-top:.65rem"><strong>{team_name}: {name}</strong>'
+                        f' · {label}</div>')
+        if projected:
+            sections.append('<div>Depth-chart QB1: '+escape(str(projected.get("name") or "?"))
+                            +(' · as of '+escape(str(info["depth_asof"])) if info.get("depth_asof") else "")
+                            +'</div>')
+        if backup:
+            sections.append('<div>Depth-chart alternate: '+escape(str(backup.get("name") or "?"))
+                            +' (not a confirmed starter)</div>')
+        if previous:
+            sections.append('<div>Previous completed-game starter: '
+                            +escape(str(previous.get("name") or previous.get("gsis_id") or "Unavailable"))
+                            +' · week '+escape(str(previous.get("week")))+'</div>')
+        injury=info.get("report")
+        if injury:
+            sections.append('<div>Source-dated QB game status: <strong>'
+                            +escape(str(injury["status"]))+'</strong> · updated '
+                            +escape(str(injury["updated_at"]))+'</div>')
+        else:
+            sections.append('<div>Dated QB injury status: unavailable (not a healthy designation).</div>')
+        ann=info.get("confirmation")
+        if ann:
+            sections.append('<div>Owner-cited announcement: <a target="_blank" rel="noopener noreferrer" href="'
+                            +escape(str(ann["source_url"]),quote=True)+'">NFL source</a> · dated '
+                            +escape(str(ann["reported_at"]))
+                            +' · supplied by app owner, not independently fact-checked.</div>')
+        delta=info.get("replacement_delta_epa")
+        if delta is not None:
+            sections.append(f'<div><strong>Replacement performance difference: {float(delta):+.3f}'
+                            ' passing EPA / dropback</strong> (estimated from earlier regular-season games, '
+                            '150-play shrinkage; positive means the projected QB has performed better).</div>')
+        elif info.get("change_indicated"):
+            sections.append('<div>Replacement performance difference: unavailable '
+                            '(insufficient earlier-game quarterback data).</div>')
+        else:
+            sections.append('<div>No verified change from the previously recorded starter '
+                            'or no prior-season-local starter established.</div>')
+    return ('<details class="ss-research"><summary>QB availability &amp; replacement quality · experimental</summary>'
+            + "".join(sections)
+            + '<div style="margin-top:.5rem">Depth charts are projections, not announcements. '
+              'Source-dated injuries do not confirm a replacement. Owner-cited NFL announcements '
+              'require a pregame timestamp but are not verified by this app. '
+              'No quarterback status or replacement-quality estimate changes official Elo '
+              'picks, probabilities or betting recommendations.</div></details>')

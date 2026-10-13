@@ -19,6 +19,7 @@ from sunday_slate.model import predict_regular_season, summary, VERSION
 from sunday_slate.market import analyze_moneyline, screen_side, historical_screen, historical_report, SCREEN_EDGE, SCREEN_MIN_PROB
 from sunday_slate.matchup import team_advanced_profiles, qb_recent_profiles, matchup_research
 from sunday_slate.injuries import reported_injuries
+from sunday_slate.watch import game_watch_flags, STAT_COLUMNS as WATCH_STAT_COLUMNS
 
 st.set_page_config(page_title="Sunday Slate | NFL Football Analytics", page_icon="🏈", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(css(), unsafe_allow_html=True)
@@ -42,6 +43,13 @@ def cached_team_stats(season: int):
 @st.cache_data(ttl=1800, show_spinner=False)
 def cached_predictions(schedule: pd.DataFrame):
     return predict_regular_season(schedule)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_watch_flags(schedule: pd.DataFrame, team_stats: pd.DataFrame,
+                       season: int, week: int):
+    """Research marker only. Does not affect Elo or moneyline research."""
+    return game_watch_flags(schedule, team_stats, season, week)
 
 
 def _optional_feed(function_name: str, season: int):
@@ -133,6 +141,16 @@ except FeedError:
 
 profiles = team_profiles(all_games, stats, season, selected)
 
+watch_flags = {}
+if stage == "REG" and selected >= 4:
+    if WATCH_STAT_COLUMNS.issubset(stats.columns):
+        try:
+            watch_flags = cached_watch_flags(all_games, stats, season, selected)
+        except (ValueError, TypeError, KeyError, IndexError, ArithmeticError):
+            st.caption("Game to Watch screening unavailable for this week; model picks are unaffected.")
+    elif season == now.year:
+        st.caption("Game to Watch screening requires complete prior-week NFL advanced statistics; missing data never counts as a match.")
+
 advanced = team_advanced_profiles(stats, season, selected) if stage == "REG" else {}
 try:
     qb_profiles = qb_recent_profiles(cached_player_stats(season), season, selected) if stage == "REG" else {}
@@ -198,6 +216,9 @@ if stage == "REG" and picks:
     except (ValueError, KeyError) as exc:
         st.caption("Historical reference-odds research is not currently available; model predictions are unaffected.")
 
+if watch_flags:
+    st.caption(f"★ {len(watch_flags)} Game to Watch matchup(s) match the pregame Home Field Advantage pattern · research flag only, not a pick.")
+
 st.markdown('<div class="ss-section">Browse matchups</div>', unsafe_allow_html=True)
 filter1, filter2, filter3 = st.columns([2, 1.2, 1])
 with filter1:
@@ -221,8 +242,10 @@ if when != "All days":
     slate = slate[days.isin(["Tuesday", "Wednesday"] if when == "Other days" else [when])]
 
 if stage == "REG":
-    research_filter = st.selectbox("Matchup display", ["All matchups", "Experimental value research matches"], key="market_research_filter")
-    if research_filter != "All matchups":
+    research_filter = st.selectbox("Matchup display", ["All matchups", "Game to Watch only", "Experimental value research matches"], key="market_research_filter")
+    if research_filter == "Game to Watch only":
+        slate = slate[slate["game_id"].astype(str).isin(watch_flags)]
+    elif research_filter == "Experimental value research matches":
         slate = slate[slate["game_id"].astype(str).isin(candidates)]
 else:
     research_filter = "All matchups"
@@ -243,7 +266,7 @@ else:
         columns = st.columns(2)
         for col, (_, game) in zip(columns, slate.iloc[idx:idx + 2].iterrows()):
             with col:
-                html = game_card(game, brands, profiles)
+                html = game_card(game, brands, profiles, watch=watch_flags.get(str(game["game_id"])))
                 prediction = picks.get(str(game["game_id"]))
                 panels = []
                 if prediction is not None:
@@ -265,6 +288,8 @@ with st.expander("About these stats and the current build"):
     st.markdown("""**Phase 3:** schedules, recorded scores, team branding, pregame comparisons, research-only market screens and results-based NFL probabilities. Team records and points-per-game are computed from previously completed regular-season games only. Passing and rushing yards per game come from the available earlier-week team summaries. A dash means the data was unavailable; it does not mean zero.
 
 **Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. The Value Research panel shows *reference* moneylines from the source schedule, not DraftKings quotes or confirmed executable prices. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Confirmed starting quarterbacks, weather tiers, parlays, and official recommended picks remain unavailable until independently verified.
+
+**Game to Watch:** An independent informational flag for non-neutral home teams with both stronger pregame offensive and defensive statistical ratings and an advantage magnitude from 0.25 up to (but not including) 0.50. Requires at least three earlier regular-season games and complete two-team weekly records. The flag does not depend on moneylines; it is not a tier or betting recommendation and never overrides the Elo prediction. Flags may change if historical source data is revised or incomplete previous-week results arrive.
 
 **Source:** nflverse / nflreadpy. Most nflverse datasets are CC BY 4.0; attribute nflverse if redistributing. No betting is placed by this app. NFL and team marks belong to their respective owners.""")
 

@@ -20,6 +20,7 @@ from sunday_slate.market import analyze_moneyline, screen_side, historical_scree
 from sunday_slate.matchup import team_advanced_profiles, qb_recent_profiles, matchup_research
 from sunday_slate.injuries import reported_injuries
 from sunday_slate.watch import game_watch_flags, STAT_COLUMNS as WATCH_STAT_COLUMNS
+from sunday_slate.coach_flags import ben_johnson_flags
 
 st.set_page_config(page_title="Sunday Slate | NFL Football Analytics", page_icon="🏈", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(css(), unsafe_allow_html=True)
@@ -141,6 +142,8 @@ except FeedError:
 
 profiles = team_profiles(all_games, stats, season, selected)
 
+coach_specials = ben_johnson_flags(all_games, season, selected) if stage == "REG" else {}
+
 watch_flags = {}
 if stage == "REG" and selected >= 4:
     if WATCH_STAT_COLUMNS.issubset(stats.columns):
@@ -218,6 +221,8 @@ if stage == "REG" and picks:
 
 if watch_flags:
     st.caption(f"★ {len(watch_flags)} Game to Watch matchup(s) match the pregame Home Field Advantage pattern · research flag only, not a pick.")
+if coach_specials:
+    st.caption(f"★ {len(coach_specials)} Ben Johnson Special matchup(s) · team favored by 0.5–3 points on the nflverse reference spread; not verified live odds or a betting pick.")
 
 st.markdown('<div class="ss-section">Browse matchups</div>', unsafe_allow_html=True)
 filter1, filter2, filter3 = st.columns([2, 1.2, 1])
@@ -242,9 +247,11 @@ if when != "All days":
     slate = slate[days.isin(["Tuesday", "Wednesday"] if when == "Other days" else [when])]
 
 if stage == "REG":
-    research_filter = st.selectbox("Matchup display", ["All matchups", "Game to Watch only", "Experimental value research matches"], key="market_research_filter")
+    research_filter = st.selectbox("Matchup display", ["All matchups", "Game to Watch only", "Ben Johnson Special only", "Experimental value research matches"], key="market_research_filter")
     if research_filter == "Game to Watch only":
         slate = slate[slate["game_id"].astype(str).isin(watch_flags)]
+    elif research_filter == "Ben Johnson Special only":
+        slate = slate[slate["game_id"].astype(str).isin(coach_specials)]
     elif research_filter == "Experimental value research matches":
         slate = slate[slate["game_id"].astype(str).isin(candidates)]
 else:
@@ -266,7 +273,9 @@ else:
         columns = st.columns(2)
         for col, (_, game) in zip(columns, slate.iloc[idx:idx + 2].iterrows()):
             with col:
-                html = game_card(game, brands, profiles, watch=watch_flags.get(str(game["game_id"])))
+                html = game_card(game, brands, profiles,
+                                 watch=watch_flags.get(str(game["game_id"])),
+                                 ben_johnson=coach_specials.get(str(game["game_id"])))
                 prediction = picks.get(str(game["game_id"]))
                 panels = []
                 if prediction is not None:
@@ -290,6 +299,8 @@ with st.expander("About these stats and the current build"):
 **Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. The Value Research panel shows *reference* moneylines from the source schedule, not DraftKings quotes or confirmed executable prices. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Confirmed starting quarterbacks, weather tiers, parlays, and official recommended picks remain unavailable until independently verified.
 
 **Game to Watch:** An independent informational flag for non-neutral home teams with both stronger pregame offensive and defensive statistical ratings and an advantage magnitude from 0.25 up to (but not including) 0.50. Requires at least three earlier regular-season games and complete two-team weekly records. The flag does not depend on moneylines; it is not a tier or betting recommendation and never overrides the Elo prediction. Flags may change if historical source data is revised or incomplete previous-week results arrive.
+
+**Ben Johnson Special:** Research-only label for Ben Johnson's team when favored by 0.5 to 3 points in the nflverse schedule's reference spread. For 2022–2024, Detroit corresponds to his offensive coordinator tenure; for 2025–2026, Chicago corresponds to his head-coaching tenure. Missing or different lines do not qualify. Reference spreads are not verified live sportsbook quotes, and the historical ATS trend has not been independently reproduced in this app. The flag never changes a model pick or establishes a betting advantage.
 
 **Source:** nflverse / nflreadpy. Most nflverse datasets are CC BY 4.0; attribute nflverse if redistributing. No betting is placed by this app. NFL and team marks belong to their respective owners.""")
 

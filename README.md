@@ -32,6 +32,8 @@ An independent NFL prediction and matchup analytics app on Streamlit Community C
 - [Phase 3 research methodology and limitations](backtests/PHASE3_RESEARCH.md)
 - [Reproducible Phase 3 reference price sensitivity checks](backtests/phase3_value_research.py)
 
+**Ben Johnson Special (research-only flag):** When the nflverse schedule's reference spread shows Ben Johnson's team as a favorite by **0.5 to 3 points**, the matchup card is labeled and can be filtered using **Ben Johnson Special only**. Uses known 2022–2024 Detroit (offensive coordinator) and 2025–2026 Chicago (head coach) seasons; other years are not assumed. An unavailable reference spread produces no flag. This signal does **not** alter model predictions or indicate verified live odds, profitability, or a recommended bet. The exploratory ATS history motivating the flag has not been independently reproduced in this repository.
+
 **Game-week injury reports** are shown only when the current NFLverse feed contains a dated report-status record from the selected week before kickoff. Source unavailability or missing players never implies health or confirmed availability. No injury input changes the Phase 2 model.
 
 ### Not yet implemented

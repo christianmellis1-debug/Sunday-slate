@@ -27,6 +27,10 @@ _STYLE = """
 .ss-watch-pill{display:inline-flex;gap:.28rem;align-items:center;background:#4e3819;border:1px solid #b99145;color:#ffde95;border-radius:999px;padding:.29rem .63rem;font-weight:850;letter-spacing:.055em}
 .ss-watch-note{color:#f3d59a;font-weight:650}
 .ss-watch-caveat{font-size:.72rem;color:#cbb88e;margin:.48rem 0 .05rem}
+.ss-match.ss-ben-johnson{border-color:#58cdc2;box-shadow:inset 3px 0 0 #58cdc2}
+.ss-ben-johnson-banner{margin:-.12rem 0 .85rem;display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;font-size:.78rem}
+.ss-ben-johnson-pill{background:#0b453e;border:1px solid #369d92;border-radius:999px;color:#b5fff2;padding:.29rem .65rem;font-weight:850;letter-spacing:.035em}
+.ss-ben-johnson-note{color:#c9efe8;font-weight:620}
 
 .ss-matchtop{display:flex;justify-content:space-between;gap:.7rem;align-items:center;color:var(--ss-muted);font-size:.78rem;margin-bottom:.95rem}
 .ss-matchup{display:grid;grid-template-columns:1fr auto 1fr;gap:.6rem;align-items:center;text-align:center;}
@@ -95,7 +99,7 @@ def _num(profile: dict | None, key: str, suffix: str = "") -> str:
 
 
 def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict],
-              watch: dict | None = None) -> str:
+              watch: dict | None = None, ben_johnson: dict | None = None) -> str:
     home = str(game["home_team"]); away = str(game["away_team"])
     hp = profiles.get(home); ap = profiles.get(away)
     complete = bool(game["completed"])
@@ -106,7 +110,17 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
     status = "Final" if complete else ("Result pending" if pending else "Scheduled")
     neutral = " · Neutral site" if str(game.get("location", "")).lower() == "neutral" else ""
     flagged = isinstance(watch, dict) and "magnitude" in watch
-    highlight = " ss-watch" if flagged else ""
+    special = isinstance(ben_johnson, dict) and "favored_by" in ben_johnson
+    highlight = (" ss-watch" if flagged else "") + (" ss-ben-johnson" if special else "")
+    special_banner = ""
+    if special:
+        points = float(ben_johnson["favored_by"])
+        role = escape(str(ben_johnson.get("role") or "Coach"))
+        special_banner = (
+            '<div class="ss-ben-johnson-banner"><span class="ss-ben-johnson-pill">★ BEN JOHNSON SPECIAL</span>'
+            f'<span class="ss-ben-johnson-note">Favored by {points:g} · {role} · '
+            'nflverse reference spread, not verified live · research only</span></div>'
+        )
     watch_banner = ""
     watch_caveat = ""
     if flagged:
@@ -121,7 +135,7 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
             'not a tier, betting recommendation, or change to Elo.</div>'
         )
     return f'''<article class="ss-match{highlight}">
-      {watch_banner}
+      {special_banner}{watch_banner}
       <div class="ss-matchtop"><span>{day}</span><span>{status}{neutral}</span></div>
       <div class="ss-matchup">{_team(away, brands, ap)}<div class="ss-middle">{middle}</div>{_team(home, brands, hp)}</div>
       <div class="ss-bot"><span>Previous weeks: <b>PPG {_num(ap,"ppg")} vs {_num(hp,"ppg")}</b></span><span>Allowed: <b>{_num(ap,"opp_ppg")} vs {_num(hp,"opp_ppg")}</b></span><span>Pass YPG: <b>{_num(ap,"pass_ypg")} vs {_num(hp,"pass_ypg")}</b></span><span>Rush YPG: <b>{_num(ap,"rush_ypg")} vs {_num(hp,"rush_ypg")}</b></span></div>

@@ -1,0 +1,71 @@
+name: Sunday Slate frozen forecast and tier research
+
+on:
+  push:
+    paths:
+      - ".github/workflows/frozen-forecast-tiers.yml"
+      - "research/frozen_form_epa_v1.json"
+      - "research/frozen_weekly.py"
+      - "research/tiers_validation.py"
+  workflow_dispatch:
+  schedule:
+    # Tuesday UTC morning, before the usual Thursday NFL kickoff.
+    - cron: "0 13 * * 2"
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot-and-grade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install existing app data dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Forecast upcoming complete unplayed NFL week
+        run: |
+          python -m research.frozen_weekly --mode snapshot --output weekly_snapshot_report.json
+      - name: Grade only previously archived predictions
+        run: |
+          python -m research.frozen_weekly --mode grade --output research/grade_history.json
+      - name: Commit frozen snapshots and updated grade summary
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/snapshots research/grade_history.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Archive frozen Sunday Slate Elo vs challenger weekly predictions"
+            git push origin HEAD:main
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: weekly-frozen-forecast-report
+          path: |
+            weekly_snapshot_report.json
+            research/grade_history.json
+          retention-days: 60
+
+  research-tiers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name != 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install existing app data dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Evaluate four-tier waterfall and Elo/challenger agreement
+        run: python -m research.tiers_validation --output tiers_research_results.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: historical-tier-study-json
+          path: tiers_research_results.json
+          retention-days: 60

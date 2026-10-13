@@ -1,0 +1,44 @@
+{
+  "version": "NFL-FORM-EPA-RESEARCH-20261013-v1",
+  "training_years": [
+    2019,
+    2020,
+    2021,
+    2022
+  ],
+  "columns": [
+    "eloDiff",
+    "recent_margin_feature",
+    "p_adj",
+    "r_adj"
+  ],
+  "mean": [
+    0.3016225240930968,
+    0.08924044099134766,
+    0.002175098122177426,
+    0.0006886378037007728
+  ],
+  "scale": [
+    1.4791729370235451,
+    0.7279930158554196,
+    0.17639709100750703,
+    0.12890532957525766
+  ],
+  "coef": [
+    0.5826474028399437,
+    0.17698980314638307,
+    0.13564121154592662,
+    0.040771469967246766
+  ],
+  "intercept": 0.10821739214534179,
+  "regularization_C": 1,
+  "fit_rows": 1050,
+  "usage": "immutable research candidate; never refit on future weeks",
+  "frozen_on": "2026-10-13",
+  "data_sources": [
+    "nflverse schedule prior week",
+    "nflverse weekly team EPA prior week"
+  ],
+  "line_source": "none",
+  "confidence_note": "retrospective 2023–2025 66.87%, preliminary 2026 62.82%; not production"
+}

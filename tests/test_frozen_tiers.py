@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from research.frozen_weekly import (
-    load_frozen, challenger_probability, select_upcoming_week, grade_archive,
+    load_frozen, challenger_probability, select_upcoming_week, grade_archive, qualifies_tier2,
 )
 from research.tiers_validation import classify, TIER_NAMES
 
@@ -83,3 +83,55 @@ def test_bad_frozen_config_is_rejected(tmp_path):
         "training_years": [2019, 2020, 2021, 2022]}))
     with pytest.raises(ValueError):
         load_frozen(p)
+
+
+def test_revised_tier_two_cutoff_is_candidate_only():
+    # Elo 68% confidence, home side +6.5 PPG: qualifies at six,
+    # does NOT qualify at seven, and must not qualify as Heavy Favorite.
+    assert qualifies_tier2(.68, .68, 6.5, 3, 6)
+    assert not qualifies_tier2(.68, .68, 6.5, 3, 7)
+    assert classify({
+        "pick_probability": .68, "home_probability": .68,
+        "ppg_projected_margin": 6.5, "min_prior_games": 3
+    }) == TIER_NAMES[2]  # Original seven-point Tier 2 still unchanged.
+    assert qualifies_tier2(.68, .32, -6.5, 3, 6)
+    assert not qualifies_tier2(.68, .32, 6.5, 3, 6)
+    assert not qualifies_tier2(.78, .78, 9.0, 3, 6)
+    assert not qualifies_tier2(.68, .68, 6.5, 2, 6)
+    assert not qualifies_tier2(.68, .68, None, 3, 6)
+
+
+def test_archived_grade_tracks_six_seven_without_rewriting(tmp_path):
+    sample = {
+        "season": 2026, "week": 6, "snapshot_sha256": "immutable",
+        "games": [
+            {"game_id": "home6", "home_team": "KC", "away_team": "LAC",
+             "elo_winner": "KC", "challenger_winner": "KC",
+             "elo_confidence": .68, "elo_home_probability": .68,
+             "ppg_margin": 6.5, "prior_games_min": 5},
+            {"game_id": "away7", "home_team": "BUF", "away_team": "NE",
+             "elo_winner": "NE", "challenger_winner": "BUF",
+             "elo_confidence": .7, "elo_home_probability": .3,
+             "ppg_margin": -8.0, "prior_games_min": 5},
+            {"game_id": "heavy", "home_team": "SEA", "away_team": "MIN",
+             "elo_winner": "SEA", "challenger_winner": "SEA",
+             "elo_confidence": .8, "elo_home_probability": .8,
+             "ppg_margin": 12.0, "prior_games_min": 5},
+        ]
+    }
+    path = tmp_path / "2026_week_06.json"
+    path.write_text(json.dumps(sample, indent=2))
+    original = path.read_bytes()
+    games = pd.DataFrame([
+        {"game_id": "home6", "home_score": 25, "away_score": 20},
+        {"game_id": "away7", "home_score": 28, "away_score": 31},
+        {"game_id": "heavy", "home_score": 35, "away_score": 3}
+    ])
+    out = grade_archive(games, tmp_path)["snapshots"][0]
+    groups = out["tier2_threshold_comparison"]
+    assert groups["ppg_6_plus_candidate"] == {
+        "qualifiers": 2, "graded": 2, "wins": 2, "losses": 0, "pending": 0
+    }
+    assert groups["ppg_7_plus_original"]["qualifiers"] == 1
+    assert groups["added_6_to_under_7"]["qualifiers"] == 1
+    assert path.read_bytes() == original

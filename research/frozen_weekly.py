@@ -38,6 +38,33 @@ def load_frozen(path: Path = CONFIG) -> dict:
     return cfg
 
 
+def qualifies_tier2(elo_confidence, elo_home_probability, ppg_home_margin,
+                    min_prior_games, threshold: float = 7.0) -> bool:
+    """Strict pregame Double Confirmation rule; Tier 1 always has priority.
+
+    The PPG margin is signed for the *home* team. A negative margin is
+    required when Elo favors the away team. A missing or tied PPG
+    projection cannot satisfy this rule.
+    """
+    try:
+        confidence = float(elo_confidence)
+        home_probability = float(elo_home_probability)
+        margin = float(ppg_home_margin)
+        prior = int(min_prior_games)
+        cutoff = float(threshold)
+    except (TypeError, ValueError, OverflowError):
+        return False
+    if not all(math.isfinite(v) for v in (
+            confidence, home_probability, margin, cutoff)):
+        return False
+    return (0.60 <= confidence < 0.75
+            and prior >= 3
+            and cutoff >= 0
+            and abs(margin) >= cutoff
+            and abs(margin) > 1e-9
+            and (margin > 0) == (home_probability >= .5))
+
+
 def challenger_probability(row: dict, cfg: dict) -> float:
     score = float(cfg["intercept"])
     for i, key in enumerate(cfg["columns"]):
@@ -170,7 +197,27 @@ def grade_archive(schedule: pd.DataFrame, root: Path = SNAPSHOTS) -> dict:
     for file in sorted(root.glob("20??_week_??.json")):
         payload = json.loads(file.read_text())
         wins_elo = wins_challenger = done = pending = 0
+        tier2_counts = {
+            "ppg_6_plus_candidate": {"qualifiers": 0, "graded": 0, "wins": 0},
+            "ppg_7_plus_original": {"qualifiers": 0, "graded": 0, "wins": 0},
+            "added_6_to_under_7": {"qualifiers": 0, "graded": 0, "wins": 0},
+        }
         for record in payload["games"]:
+            six = qualifies_tier2(
+                record.get("elo_confidence"), record.get("elo_home_probability"),
+                record.get("ppg_margin"), record.get("prior_games_min"), 6)
+            seven = qualifies_tier2(
+                record.get("elo_confidence"), record.get("elo_home_probability"),
+                record.get("ppg_margin"), record.get("prior_games_min"), 7)
+            selected = [
+                key for key, matched in (
+                    ("ppg_6_plus_candidate", six),
+                    ("ppg_7_plus_original", seven),
+                    ("added_6_to_under_7", six and not seven))
+                if matched
+            ]
+            for key in selected:
+                tier2_counts[key]["qualifiers"] += 1
             gid = record["game_id"]
             if gid not in source.index:
                 pending += 1
@@ -184,11 +231,18 @@ def grade_archive(schedule: pd.DataFrame, root: Path = SNAPSHOTS) -> dict:
             done += 1
             wins_elo += int(record["elo_winner"] == actual)
             wins_challenger += int(record["challenger_winner"] == actual)
+            for key in selected:
+                tier2_counts[key]["graded"] += 1
+                tier2_counts[key]["wins"] += int(record["elo_winner"] == actual)
+        for bucket in tier2_counts.values():
+            bucket["losses"] = bucket["graded"] - bucket["wins"]
+            bucket["pending"] = bucket["qualifiers"] - bucket["graded"]
         report.append({"season": payload["season"], "week": payload["week"],
                        "total": len(payload["games"]),
                        "graded": done, "pending_or_tie": pending,
                        "elo": {"wins": wins_elo, "losses": done - wins_elo},
                        "challenger": {"wins": wins_challenger, "losses": done - wins_challenger},
+                       "tier2_threshold_comparison": tier2_counts,
                        "snapshot_sha256": payload["snapshot_sha256"]})
     return {"snapshots": report, "total_graded": sum(x["graded"] for x in report),
             "note": "Grades only pregame archived predictions; snapshots are never rewritten."}

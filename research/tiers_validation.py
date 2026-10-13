@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from research.frozen_weekly import predictions, load_frozen
+from research.frozen_weekly import predictions, load_frozen, qualifies_tier2
 from research.model_epa_qbr_study import load_stats
 from sunday_slate.data import load_schedules
 
@@ -35,6 +35,38 @@ def classify(row):
     if eligible and conf >= .60:
         return TIER_NAMES[1] if abs(float(pp)) >= 7 else TIER_NAMES[2]
     return TIER_NAMES[3]
+
+
+def compare_tier2_cutoffs(grades):
+    """Prospective +6 candidate beside unchanged +7 official research tier.
+
+    Apply Heavy Favorite's priority first and grade only the stored
+    preweek Elo pick. Added games are disjoint from +7 qualifiers.
+    """
+    if grades.empty:
+        return {}
+    def eligibility(row, cutoff):
+        return qualifies_tier2(
+            row.pick_probability, row.home_probability,
+            row.ppg_projected_margin, row.min_prior_games, cutoff)
+
+    six = grades.apply(lambda row: eligibility(row, 6), axis=1)
+    seven = grades.apply(lambda row: eligibility(row, 7), axis=1)
+    assert (seven & ~six).sum() == 0
+    def cohort(flag):
+        sub = grades.loc[flag]
+        return {
+            "elo": record(sub, "elo_correct"),
+            "frozen_candidate": record(sub, "challenger_correct"),
+        }
+    six_less_seven = cohort(six & ~seven)
+    return {
+        "research_candidate_ppg_6_plus": cohort(six),
+        "original_ppg_7_plus": cohort(seven),
+        "additional_ppg_6_to_under_7": six_less_seven,
+        "added_game_ids": grades.loc[six & ~seven, "game_id"].astype(str).tolist(),
+        "notes": "Original waterfall stays at +7; +6 is research-only. Retrospective selection is not a pristine holdout.",
+    }
 
 
 def record(frame, field):
@@ -77,6 +109,7 @@ def report(schedule, team):
                    lambda row, label=label:row.tier==label)
                    for label in TIER_NAMES]
         return {
+            "tier2_threshold_comparison": compare_tier2_cutoffs(grades),
             "baseline_elo":record(grades,"elo_correct"),
             "candidate":record(grades,"challenger_correct"),
             "all_tiers":results,

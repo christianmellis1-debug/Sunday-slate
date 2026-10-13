@@ -9,9 +9,6 @@ from collections import defaultdict
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
 from sunday_slate.model import predict_regular_season
 from research.test_qbr_defense import load_games, load_qbr, _leading_passer_qbr, normalized
 
@@ -143,6 +140,10 @@ def evaluate(sub,probs):
             'brier':round(float(((p-y.astype(float))**2).mean()),5)}
 
 def assess(games,team_stats,qbr):
+    # scikit-learn is only needed for the separately installed research workflow.
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
     baseline=predict_regular_season(games)
     features=make_features(games,team_stats,qbr)
     data=baseline.merge(features.drop(columns=['season','week']),on='game_id',validate='one_to_one')

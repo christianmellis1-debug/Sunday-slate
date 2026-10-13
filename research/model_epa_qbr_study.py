@@ -68,8 +68,8 @@ def make_features(schedule,stats,qbr):
             changes=[]
             for g in slate.itertuples(index=False):
                 h,a=normalized(g.home_team),normalized(g.away_team)
-                if pd.isna(g.home_score) or pd.isna(g.away_score) or g.home_score==g.away_score:
-                    continue
+                # Forecast pending and tied games too. Results are only
+                # inspected after feature generation, in the update loop.
                 H,A=states[h],states[a]
                 minimum=min(H['n'],A['n'])
                 shrink=minimum/(minimum+SHRINK) if minimum else 0.
@@ -173,11 +173,27 @@ def assess(games,team_stats,qbr):
     }
     fit=data[data.season.isin(TRAIN)]
     if len(fit)<900:raise ValueError('Incomplete training data: '+str(len(fit)))
+    frozen_candidate_params = None
     for name,cols in choices.items():
         clf=make_pipeline(StandardScaler(),LogisticRegression(
             C=1.0,max_iter=1500,solver='lbfgs'))
         clf.fit(fit[cols].fillna(0),fit.actual_home_win.astype(int))
         data[name]=clf.predict_proba(data[cols].fillna(0))[:,1]
+        if name == 'elo_recent_plus_adj_epa':
+            scaler=clf.named_steps['standardscaler']
+            lr=clf.named_steps['logisticregression']
+            frozen_candidate_params = {
+                'version': 'NFL-FORM-EPA-RESEARCH-20261013-v1',
+                'training_years': list(TRAIN),
+                'columns': cols,
+                'mean': scaler.mean_.astype(float).tolist(),
+                'scale': scaler.scale_.astype(float).tolist(),
+                'coef': lr.coef_[0].astype(float).tolist(),
+                'intercept': float(lr.intercept_[0]),
+                'regularization_C': 1.0,
+                'fit_rows': int(len(fit)),
+                'usage': 'immutable research candidate; never refit on future weeks',
+            }
     periods={'2019-2022_fit':list(TRAIN),'2023-2025_evaluation':list(TEST),
              '2026_preliminary':[2026]}
     periods.update({str(y):[y] for y in range(2019,2027)})
@@ -189,7 +205,8 @@ def assess(games,team_stats,qbr):
                                'total':len(sub)}}
         for name in choices:report[name]=evaluate(sub,sub[name])
         results[key]=report
-    return {'method':{'fit_years':list(TRAIN),
+    return {'frozen_candidate_params': frozen_candidate_params,
+            'method':{'fit_years':list(TRAIN),
                       'prior_only_weekly_freeze':True,
                       'epa_opponent_adjustment':
                           'Pre-week opponent efficiency residual; beta=.5, sample shrink n/(n+3)',

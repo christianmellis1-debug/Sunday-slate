@@ -12,6 +12,7 @@ import pandas as pd
 from sunday_slate.model import predict_regular_season
 from research.test_qbr_defense import load_qbr, _leading_passer_qbr, normalized
 from sunday_slate.data import load_schedules
+from backtests.experimental_research import preweek_features
 
 TRAIN=(2019,2020,2021,2022)
 TEST=(2023,2024,2025)
@@ -148,6 +149,9 @@ def assess(games,team_stats,qbr):
     baseline=predict_regular_season(games)
     features=make_features(games,team_stats,qbr)
     data=baseline.merge(features.drop(columns=['season','week']),on='game_id',validate='one_to_one')
+    # Same prior-week frozen recent scoring signal as Phase 4's initial study.
+    recent=preweek_features(games)[['game_id','recent_margin_feature']]
+    data=data.merge(recent,on='game_id',validate='one_to_one')
     data=data[data.pick_result.isin(['Correct','Incorrect'])].copy()
     data['actual_home_win']=(data.pick_result.eq('Correct')
                              ==data.predicted_winner.eq(data.home_team))
@@ -161,6 +165,11 @@ def assess(games,team_stats,qbr):
         'elo_qbr_proxy':['eloDiff','qbr_delta','qb_both_known'],
         'elo_adj_epa_qbr':['eloDiff','p_adj','r_adj','qbr_delta','qb_both_known'],
         'elo_raw_epa_qbr':['eloDiff','p_raw','r_raw','qbr_delta','qb_both_known'],
+        'elo_recent_form':['eloDiff','recent_margin_feature'],
+        'elo_recent_plus_raw_epa':['eloDiff','recent_margin_feature','p_raw','r_raw'],
+        'elo_recent_plus_adj_epa':['eloDiff','recent_margin_feature','p_adj','r_adj'],
+        'elo_recent_plus_qbr':['eloDiff','recent_margin_feature','qbr_delta','qb_both_known'],
+        'elo_recent_plus_adj_epa_qbr':['eloDiff','recent_margin_feature','p_adj','r_adj','qbr_delta','qb_both_known'],
     }
     fit=data[data.season.isin(TRAIN)]
     if len(fit)<900:raise ValueError('Incomplete training data: '+str(len(fit)))

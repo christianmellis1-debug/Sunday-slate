@@ -195,11 +195,26 @@ def run(games,stats):
         result["sensitivity"][p]={"no_spread_cap":rate(candidates),
             "spread_at_most_10":rate([r for r in candidates if r["under_ten"]]),
             "exclude_magnitude_050_074":rate([r for r in candidates if r["magnitude_bucket"]!="0.50-0.74"])}
+    result["by_season_magnitude"]={}
+    for y in YEARS:
+        result["by_season_magnitude"][str(y)]={
+          mag:rate([r for r in records if r["season"]==y and r["magnitude_bucket"]==mag])
+          for mag in ("0.00-0.24","0.25-0.49","0.50-0.74","0.75-0.99","1.00-1.49","1.50+")}
+    result["exploratory_ranges"]={}
+    for p,years in periods.items():
+        group=[r for r in records if r["season"] in years]
+        result["exploratory_ranges"][p]={
+          "0.25_to_under_0.75":rate([r for r in group if .25<=r["magnitude"]<.75]),
+          "at_least_0.25":rate([r for r in group if r["magnitude"]>=.25]),
+          "below_0.25":rate([r for r in group if r["magnitude"]<.25])}
     return result
 
 def main():
     games,stats=read_inputs()
     result=run(games,stats)
+    finals=games[games.season.eq(2026) & games.home_score.notna() & games.away_score.notna()]
+    print("2026 FINAL GAMES BY WEEK:",finals.groupby("week").size().to_dict(),flush=True)
+    print("2026 QUALIFYING GAMES:",json.dumps([r for r in result["records"] if r["season"]==2026]),flush=True)
     Path("nfl_home_field_proposed_results.json").write_text(json.dumps(result,indent=2,allow_nan=False))
     print("NFL_HOME_FIELD_RESULTS_BEGIN",flush=True)
     print(json.dumps({k:v for k,v in result.items() if k!="records"},indent=2,allow_nan=False),flush=True)

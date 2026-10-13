@@ -322,6 +322,53 @@ def assess(schedule,stats):
                  (dom.dom_team.eq(dom.away_team)&dom.spread_line.lt(0)))]),
         }
         reports[period]=period_result
+    # Matched-game diagnostics: avoid mistaking refitting Elo for football value.
+    # These rows are for transparent research, not for any in-app picks.
+    audits={}
+    for period,years in {"2023-2025_holdout":TEST,"2026_preliminary":CURRENT}.items():
+        subset=data[data.season.isin(years)].copy()
+        audits[period]={}
+        for model in ("elo_recalibrated","elo_raw_pressure",
+                      "elo_opponent_adjusted_pressure","elo_sack_only",
+                      "elo_recent_pressure","elo_raw_plus_adjusted"):
+            actual=subset.actual_home_win.eq(1)
+            base_correct=subset.home_probability.ge(.5).eq(actual)
+            selected_correct=subset[model].ge(.5).eq(actual)
+            gained=int((selected_correct&~base_correct).sum())
+            lost=int((~selected_correct&base_correct).sum())
+            switched=subset[subset.home_probability.ge(.5).ne(subset[model].ge(.5))]
+            audits[period][model]={
+                "corrected_elo_misses":gained,
+                "changed_elo_winners_to_losses":lost,
+                "pick_flips":len(switched),
+                "eligible_3_prior":evaluate_predictions(
+                    subset[subset.has_min_games.eq(1)],
+                    subset.loc[subset.has_min_games.eq(1),model]),
+                "less_3_prior":evaluate_predictions(
+                    subset[subset.has_min_games.eq(0)],
+                    subset.loc[subset.has_min_games.eq(0),model]),
+                "elo_eligible_3_prior":evaluate_predictions(
+                    subset[subset.has_min_games.eq(1)],
+                    subset.loc[subset.has_min_games.eq(1),"home_probability"]),
+                "elo_less_3_prior":evaluate_predictions(
+                    subset[subset.has_min_games.eq(0)],
+                    subset.loc[subset.has_min_games.eq(0),"home_probability"]),
+            }
+        if period=="2026_preliminary":
+            m="elo_raw_plus_adjusted"
+            delta=subset[subSetMask] if False else subset[
+                subset.home_probability.ge(.5).ne(subset[m].ge(.5))]
+            audits[period]["switched_games"]=[
+                {"game_id":str(g.game_id),
+                 "week":int(g.week),
+                 "elo_home_prob":round(float(g.home_probability),4),
+                 "challenger_home_prob":round(float(getattr(g,m)),4),
+                 "elo_correct":bool(
+                     (g.home_probability>=.5)==bool(g.actual_home_win)),
+                 "min_games":int(g.min_games),
+                 "raw_edge":round(float(g.raw_edge),4),
+                 "adjusted_edge":round(float(g.adjusted_edge),4)}
+                for g in delta.itertuples(index=False)]
     return {"method":{"train":list(TRAIN),"holdout":list(TEST),
                       "stat":"qb_hit OR sack per pass dropback (not all true pressures)",
                       "source":"nflverse play-by-play source, week-frozen raw/adjusted pressure",
@@ -329,7 +376,7 @@ def assess(schedule,stats):
                       "ats":"nflverse reference closing spread; not verified FanDuel/DraftKings",
                       "production_model_unchanged":True},
             "coverage":coverage,
-            "aggregates":len(stats),"fitted":fitted,"results":reports}
+            "aggregates":len(stats),"fitted":fitted,"results":reports,"matched_audits":audits}
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--stats")

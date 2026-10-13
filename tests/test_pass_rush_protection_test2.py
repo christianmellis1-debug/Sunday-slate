@@ -64,7 +64,7 @@ def test_nflverse_home_favored_spread_ats_conversion():
         "away_score":[20,23,30],
         "spread_line":[7,3,-13],
     })
-    result=evaluate_predictions(games,pd.Series([.9,.8,.4]))
+    result=evaluate_predictions(games,pd.Series([.9,.2,.4]))
     assert result["games"]==3
     # Home covers first. Away covers second despite home SU win. Third pushes.
     assert result["ats_with_reference_line"]=={

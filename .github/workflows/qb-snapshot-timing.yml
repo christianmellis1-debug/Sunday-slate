@@ -1,0 +1,35 @@
+name: Sunday Slate QB pregame timing sensitivity
+
+on:
+  push:
+    paths:
+      - "research/qb_same_day_cutoff_sensitivity.py"
+      - ".github/workflows/qb-snapshot-timing.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  timing-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install research dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install "scikit-learn>=1.5,<2.0"
+      - name: Test two-hour pregame freeze
+        run: python -m research.qb_same_day_cutoff_sensitivity
+      - name: Upload sensitivity results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qb-t2h-snapshot-sensitivity
+          path: qb_t2h_sensitivity_results.json
+          retention-days: 30
+          if-no-files-found: warn

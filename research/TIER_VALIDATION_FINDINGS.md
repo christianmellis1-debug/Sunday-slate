@@ -8,7 +8,7 @@
 
 | Tier | Research-only rule |
 | --- | --- |
-| **Tier 1 · Elite Rating** | Unmodified Elo confidence **75% or greater** |
+| **Tier 1 · Heavy Favorite** | Unmodified Elo confidence **75% or greater** |
 | **Tier 2 · Double Confirmation** | After excluding Tier 1: Elo confidence **60%+**, projected winning margin by adjusted PPG **7+ points**, Elo and PPG select same side, both teams **3+ prior games** |
 | **Tier 3 · Solid Consensus** | After excluding Tiers 1–2: Elo confidence **60%+**, Elo and adjusted PPG select same side, both teams **3+ prior games** |
 | **Tier 4 · Uncertain** | All other games. **Not a betting recommendation** |

@@ -40,7 +40,7 @@ The above numbers describe the preliminary research reconstruction. Use the CLI'
 
 Each matchup is assigned to **one** category, first-match-wins. Tiers grade the *unmodified Elo-selected winner*, and use PPG only as an agreement signal.
 
-1. **Tier 1: Elite Rating** — Elo confidence >=75%.
+1. **Tier 1: Heavy Favorite** — Elo confidence >=75%.
 2. **Tier 2: Double Confirmation** — >=3 games played by both teams, Elo >=60%, pregame adjusted PPG model agrees, projected PPG margin >=7.
 3. **Tier 3: Solid Consensus** — >=3 games played by both teams, Elo >=60%, pregame PPG model agrees, margin below 7.
 4. **Tier 4: Uncertain** — every remaining matchup.

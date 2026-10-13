@@ -11,6 +11,10 @@ from research.frozen_weekly import (
 from research.tiers_validation import classify, TIER_NAMES
 
 
+def test_tier_one_label_is_heavy_favorite():
+    assert TIER_NAMES[0] == "Tier 1 | Heavy Favorite"
+
+
 def test_frozen_candidate_is_deterministic_and_not_refitted():
     cfg = load_frozen()
     row = {key: cfg["mean"][i] for i, key in enumerate(cfg["columns"])}

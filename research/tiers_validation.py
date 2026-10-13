@@ -15,7 +15,7 @@ from research.model_epa_qbr_study import load_stats
 from sunday_slate.data import load_schedules
 
 TIER_NAMES = [
-    "Tier 1 | Elite Rating",
+    "Tier 1 | Heavy Favorite",
     "Tier 2 | Double Confirmation",
     "Tier 3 | Solid Consensus",
     "Tier 4 | Uncertain",

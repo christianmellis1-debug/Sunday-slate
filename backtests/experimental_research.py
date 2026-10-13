@@ -170,7 +170,7 @@ def tier_name(row) -> str:
     agreement = (margin_available
                  and (float(ppg) > 0) == (float(row.home_probability) >= .5))
     if confidence >= .75:
-        return "Tier 1 - Elite Rating"
+        return "Tier 1 - Heavy Favorite"
     if int(row.min_prior_games) >= 3 and agreement and confidence >= .60:
         if abs(float(ppg)) >= 7:
             return "Tier 2 - Double Confirmation"

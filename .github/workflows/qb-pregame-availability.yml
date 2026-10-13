@@ -1,0 +1,36 @@
+name: Sunday Slate pregame QB availability research
+
+on:
+  push:
+    paths:
+      - "research/qb_pregame_availability_study.py"
+      - ".github/workflows/qb-pregame-availability.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  historical-availability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install research dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install "scikit-learn>=1.5,<2.0"
+      - name: Evaluate only as-of pregame QB depth snapshots
+        run: |
+          python -m research.qb_pregame_availability_study --output qb_pregame_availability_results.json
+      - name: Preserve results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sunday-slate-pregame-qb-results
+          path: qb_pregame_availability_results.json
+          retention-days: 30
+          if-no-files-found: warn

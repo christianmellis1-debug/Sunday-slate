@@ -22,6 +22,12 @@ _STYLE = """
 .ss-subtitle{color:#a9bdd3;font-size:1rem;margin-bottom:1.4rem}
 .ss-pulse{display:inline-block;background:#083946;border:1px solid #0b7684;color:#7be7ec;border-radius:100px;padding:.25rem .65rem;font-size:.76rem;font-weight:750;vertical-align:middle;margin-left:.5rem}
 .ss-match{border:1px solid var(--ss-edge);background:linear-gradient(120deg,#142139,#0d1627);border-radius:15px;padding:1.05rem 1.2rem;margin:.45rem 0 .7rem;}
+.ss-match.ss-watch{border-color:#e9b75b;background:linear-gradient(120deg,#28303a,#161f2f);box-shadow:inset 3px 0 0 #e9b75b,0 0 0 1px rgba(233,183,91,.10)}
+.ss-watch-banner{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin:-.12rem 0 .88rem;font-size:.78rem}
+.ss-watch-pill{display:inline-flex;gap:.28rem;align-items:center;background:#4e3819;border:1px solid #b99145;color:#ffde95;border-radius:999px;padding:.29rem .63rem;font-weight:850;letter-spacing:.055em}
+.ss-watch-note{color:#f3d59a;font-weight:650}
+.ss-watch-caveat{font-size:.72rem;color:#cbb88e;margin:.48rem 0 .05rem}
+
 .ss-matchtop{display:flex;justify-content:space-between;gap:.7rem;align-items:center;color:var(--ss-muted);font-size:.78rem;margin-bottom:.95rem}
 .ss-matchup{display:grid;grid-template-columns:1fr auto 1fr;gap:.6rem;align-items:center;text-align:center;}
 .ss-team{min-width:0}.ss-team img{width:46px;height:46px;object-fit:contain;margin-bottom:.3rem}
@@ -88,7 +94,8 @@ def _num(profile: dict | None, key: str, suffix: str = "") -> str:
     return f"{n:.1f}{suffix}" if isinstance(n, (int, float)) and pd.notna(n) else "—"
 
 
-def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict]) -> str:
+def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict],
+              watch: dict | None = None) -> str:
     home = str(game["home_team"]); away = str(game["away_team"])
     hp = profiles.get(home); ap = profiles.get(away)
     complete = bool(game["completed"])
@@ -98,10 +105,27 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
     pending = pd.notna(kickoff) and kickoff <= pd.Timestamp.now(tz=CENTRAL)
     status = "Final" if complete else ("Result pending" if pending else "Scheduled")
     neutral = " · Neutral site" if str(game.get("location", "")).lower() == "neutral" else ""
-    return f'''<article class="ss-match">
+    flagged = isinstance(watch, dict) and "magnitude" in watch
+    highlight = " ss-watch" if flagged else ""
+    watch_banner = ""
+    watch_caveat = ""
+    if flagged:
+        magnitude = float(watch["magnitude"])
+        home_name = escape(str(brands.get(home, {}).get("name") or home))
+        watch_banner = (
+            '<div class="ss-watch-banner"><span class="ss-watch-pill">★ GAME TO WATCH</span>'
+            f'<span class="ss-watch-note">Home Field Advantage · {home_name} · Magnitude {magnitude:.2f}</span></div>'
+        )
+        watch_caveat = (
+            '<div class="ss-watch-caveat">Pregame statistical matchup flag · '
+            'not a tier, betting recommendation, or change to Elo.</div>'
+        )
+    return f'''<article class="ss-match{highlight}">
+      {watch_banner}
       <div class="ss-matchtop"><span>{day}</span><span>{status}{neutral}</span></div>
       <div class="ss-matchup">{_team(away, brands, ap)}<div class="ss-middle">{middle}</div>{_team(home, brands, hp)}</div>
       <div class="ss-bot"><span>Previous weeks: <b>PPG {_num(ap,"ppg")} vs {_num(hp,"ppg")}</b></span><span>Allowed: <b>{_num(ap,"opp_ppg")} vs {_num(hp,"opp_ppg")}</b></span><span>Pass YPG: <b>{_num(ap,"pass_ypg")} vs {_num(hp,"pass_ypg")}</b></span><span>Rush YPG: <b>{_num(ap,"rush_ypg")} vs {_num(hp,"rush_ypg")}</b></span></div>
+      {watch_caveat}
     </article>'''
 
 

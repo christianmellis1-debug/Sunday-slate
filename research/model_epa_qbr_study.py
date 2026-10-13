@@ -145,7 +145,7 @@ def evaluate(sub,probs):
 def assess(games,team_stats,qbr):
     baseline=predict_regular_season(games)
     features=make_features(games,team_stats,qbr)
-    data=baseline.merge(features,on='game_id',validate='one_to_one')
+    data=baseline.merge(features.drop(columns=['season','week']),on='game_id',validate='one_to_one')
     data=data[data.pick_result.isin(['Correct','Incorrect'])].copy()
     data['actual_home_win']=(data.pick_result.eq('Correct')
                              ==data.predicted_winner.eq(data.home_team))

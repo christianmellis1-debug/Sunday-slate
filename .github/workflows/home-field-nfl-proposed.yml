@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/home-field-nfl-proposed.yml"
       - "research/home_field_nfl_proposed.py"
+      - "research/validate_home_field_tier.py"
   workflow_dispatch:
 
 permissions:
@@ -21,12 +22,11 @@ jobs:
           python-version: "3.11"
       - name: Install statistical packages
         run: python -m pip install -r requirements.txt
-      - name: Run NFL proposed rule backtest
-        run: python -m research.home_field_nfl_proposed
-      - name: Preserve NFL proposed-rule results
+      - name: Validate magnitude tier against Elo and reference odds
+        run: python -m research.validate_home_field_tier
+      - uses: actions/upload-artifact@v4
         if: success()
-        uses: actions/upload-artifact@v4
         with:
-          name: nfl-home-field-proposed-results
-          path: nfl_home_field_proposed_results.json
+          name: nfl-home-field-proposed-validation
+          path: nfl_home_field_tier_validation.json
           retention-days: 30

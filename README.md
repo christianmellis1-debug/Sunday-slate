@@ -80,9 +80,9 @@ python -m backtests.run_backtest --output model_validation.json
 
 Run the research independently (the app does not load this at startup):
 
-\`\`\`bash
+```bash
 python -m backtests.experimental_research --csv /path/to/pinned-nflverse-games.csv --output phase4_results.json
-\`\`\`
+```
 
 ## Data and licensing
 

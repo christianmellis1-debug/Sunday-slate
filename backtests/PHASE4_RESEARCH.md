@@ -12,15 +12,15 @@ Status: **RESEARCH ONLY**. Production prediction and coaching signals remain unc
 
 Run:
 
-\`\`\`bash
+```bash
 python -m backtests.experimental_research --csv path/to/pinned-nflverse-games.csv --output phase4_results.json
-\`\`\`
+```
 
-Without \`--csv\`, the runner uses the installed nflreadpy schedule loader and fetches the current published historical schedule.
+Without `--csv`, the runner uses the installed nflreadpy schedule loader and fetches the current published historical schedule.
 
-The new module \`backtests/experimental_research.py\` reuses production Elo outputs, but only as inputs to a **parallel diagnostic model**. It does not write to the app or change any predictions.
+The new module `backtests/experimental_research.py` reuses production Elo outputs, but only as inputs to a **parallel diagnostic model**. It does not write to the app or change any predictions.
 
-- Recent-form feature: home team last 4 completed regular-season scoring margins minus away team last 4 scoring margins, with a two-point non-neutral home context adjustment, multiplied by \`min(prior games)/(min(prior games)+4)\`, divided by 10.
+- Recent-form feature: home team last 4 completed regular-season scoring margins minus away team last 4 scoring margins, with a two-point non-neutral home context adjustment, multiplied by `min(prior games)/(min(prior games)+4)`, divided by 10.
 - Regular-season scoring history resets every season. Elo itself retains its existing offseason-regression behavior.
 - One *entire* schedule week is snapshotted before any of that week's outcomes update Elo or scoring features.
 - Fixed, deterministic logistic calibration: Elo rating difference/100 plus the recent-form score feature, with a small ridge penalty. Fit on **2019–2022 only**. The code does not select its parameters using 2023+ outcomes.

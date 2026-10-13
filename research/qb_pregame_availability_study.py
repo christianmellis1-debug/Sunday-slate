@@ -8,6 +8,7 @@ audit and an explicitly hindsight-dependent oracle may use those identities.
 All player EPA comes only from games in PRIOR weeks.
 """
 from __future__ import annotations
+import argparse
 import bisect
 import json
 from collections import defaultdict

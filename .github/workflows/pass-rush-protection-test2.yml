@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "research/pass_rush_protection_test2.py"
+      - "tests/test_pass_rush_protection_test2.py"
       - ".github/workflows/pass-rush-protection-test2.yml"
   workflow_dispatch:
 
@@ -22,7 +23,9 @@ jobs:
       - name: Install research dependencies
         run: |
           python -m pip install -r requirements.txt
-          python -m pip install "scikit-learn>=1.5,<2.0" polars pyarrow
+          python -m pip install "scikit-learn>=1.5,<2.0" polars pyarrow pytest
+      - name: Check feature leakage and ATS spread-sign regression tests
+        run: python -m pytest -q tests/test_pass_rush_protection_test2.py
       - name: Run week-frozen pressure and offensive line backtest
         run: |
           python -m research.pass_rush_protection_test2 --output pass_rush_protection_test2_results.json

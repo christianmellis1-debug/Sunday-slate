@@ -1,0 +1,22 @@
+{
+  "snapshots": [
+    {
+      "season": 2026,
+      "week": 6,
+      "total": 14,
+      "graded": 0,
+      "pending_or_tie": 14,
+      "elo": {
+        "wins": 0,
+        "losses": 0
+      },
+      "challenger": {
+        "wins": 0,
+        "losses": 0
+      },
+      "snapshot_sha256": "e1a202c17690e02edd5d7aaa75546ce9efd4255c25f648a2f82593d57945b728"
+    }
+  ],
+  "total_graded": 0,
+  "note": "Grades only pregame archived predictions; snapshots are never rewritten."
+}

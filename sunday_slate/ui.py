@@ -102,6 +102,9 @@ def _num(profile: dict | None, key: str, suffix: str = "") -> str:
 
 
 def quote_time(quote):
+    if quote.get("feed") == "Covers":
+        updated = escape(str(quote.get("updated_at") or "unavailable"))
+        return f"Via Covers · Source timestamp {updated} · may be delayed"
     if quote.get("feed") == "ESPN":
         fetched = escape(str(quote.get("fetched_at") or "unavailable"))
         return f"Via ESPN · Retrieved {fetched} · provider update time unavailable"

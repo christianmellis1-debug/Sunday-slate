@@ -52,6 +52,8 @@ class FakeStreamlit(types.ModuleType):
 
 
 def test_standalone_app_boot_with_nflverse_contract(monkeypatch):
+    from sunday_slate import fanduel_covers
+    monkeypatch.setattr(fanduel_covers, "fetch_snapshot", lambda: {"html": "", "fetched_at": None})
     fake_st = FakeStreamlit()
     fake_nfl = types.ModuleType("nflreadpy")
     fake_nfl.load_schedules = lambda seasons: FakeFrame(schedule())

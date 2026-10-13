@@ -24,6 +24,7 @@ from sunday_slate.injuries import reported_injuries
 from sunday_slate.qb_availability import context as qb_confirmation_context, read_owner_confirmations
 from sunday_slate.watch import game_watch_flags, STAT_COLUMNS as WATCH_STAT_COLUMNS
 from sunday_slate.coach_flags import coaching_flags
+from sunday_slate.fanduel_covers import CoversFeedError, fetch_snapshot as fetch_covers, match_quotes as match_covers
 from sunday_slate.espn_odds import ESPNFeedError, fetch_week, match_quotes
 from sunday_slate.draftkings import DKFeedError, fetch_date, match_games, utc_dates
 
@@ -69,6 +70,11 @@ def _optional_feed(function_name: str, season: int):
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_player_stats(season: int):
     return _optional_feed("load_player_stats", season)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def cached_fanduel_covers():
+    return fetch_covers()
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -188,9 +194,15 @@ if stage == "REG" and dk_api_key:
         except DKFeedError:
             dk_error = "Optional FanDuel / DraftKings feed unavailable. ESPN quotes remain available when published."
 elif stage == "REG":
-    dk_error = "DraftKings odds load through ESPN without a key. FanDuel uses ESPN when published, or THERUNDOWN_API_KEY in Streamlit Secrets."
+    dk_error = "DraftKings odds load through ESPN without a key. FanDuel loads via Covers, with optional ESPN/TheRundown coverage."
 
-if dk_error:
+if stage == "REG" and utc_dates(slate):
+    try:
+        fd_by_game = {**match_covers(slate, cached_fanduel_covers()), **fd_by_game}
+    except CoversFeedError:
+        st.caption("FanDuel via Covers is temporarily unavailable.")
+
+if dk_error and dk_api_key:
     st.caption(dk_error)
 
 coach_markers = coaching_flags(slate, season, selected, dk_by_game) if stage == "REG" else {}

@@ -53,7 +53,8 @@ def test_pregame_epa_excludes_current_and_future_week():
     assert first.loc["2024_02_SEA_DAL","min_games"] == 1
     assert first.loc["2024_03_DAL_NYG","min_games"] == 2
     updated=stats.copy()
-    updated.loc[updated["week"].eq(2),"passing_epa"] = 900.
+    # Change only one club: a symmetric change to every team could cancel.
+    updated.loc[updated["game_id"].eq("2024_02_SEA_DAL") & updated["team"].eq("DAL"),"passing_epa"] = 900.
     second=make_features(games,updated,qbr).set_index("game_id")
     # No week-2 input can be modified by same week's final box scores.
     for col in ("p_raw","p_adj","r_raw","r_adj"):

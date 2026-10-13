@@ -26,13 +26,14 @@ An independent NFL prediction and matchup analytics app on Streamlit Community C
 - Prior-week offensive EPA per passing attempt and rushing carry
 - Defensive EPA-allowed comparisons derived from earlier opposing team boxes
 - Recent (four previous weeks) highest-volume quarterback passer summaries, **not claimed as confirmed starters**
-- DraftKings-only pregame moneylines and spreads via TheRundown (private free-tier API key required; five-minute delay). No alternative-book or nflverse odds fallback.
+- FanDuel moneylines and spreads displayed separately on upcoming game cards, using TheRundown affiliate 23. The same `THERUNDOWN_API_KEY` enables both books; no new credential is needed. Quotes retain their provider timestamps, and unavailable lines never borrow another book’s prices. Cached snapshots refresh after 30 minutes on app rerun; free-tier source prices are delayed by five minutes. FanDuel display does not alter Elo, DraftKings coaching flags, or DraftKings value research.
+- DraftKings moneylines and spreads load automatically through ESPN without a key, cached for five minutes. FanDuel quotes published by ESPN are also accepted under their own label. The optional TheRundown connection fills missing book-specific quotes, with no cross-book or nflverse fallback. ESPN retrieval times are explicitly distinguished from unavailable provider update times.
 - **Value Research** filter for unverified experimental screen matches, explicitly **not recommended bets**
 - Historical reference-price backtests remain in research code, but are no longer presented as DraftKings results. There is no verified DraftKings historical ROI.
 - [Phase 3 research methodology and limitations](backtests/PHASE3_RESEARCH.md)
 - [Reproducible Phase 3 reference price sensitivity checks](backtests/phase3_value_research.py)
 
-**DraftKings Coaching Trends (research-only flags):** Matchup cards highlight **Ben Johnson Special** (his team favored by 0.5–3), **Schottenheimer Favorite** (Dallas favored by at least 0.5), and **Stefanski Mid-Range Favorite** (his team favored by 3.5–7). Each is available as a filter. The app requires a positive DraftKings-only feed match (affiliate ID 19), never invents a missing line, and never uses historical nflverse odds to trigger a flag. Historical cover rates are exploratory rather than validated betting edges; flags never change Elo picks.
+**DraftKings Coaching Trends (research-only flags):** Matchup cards highlight **Ben Johnson Special** (his team favored by 0.5–3), **Schottenheimer Favorite** (Dallas favored by at least 0.5), and **Stefanski Mid-Range Favorite** (his team favored by 3.5–7). Each is available as a filter. The app requires a positive DraftKings-only feed match (ESPN provider name or TheRundown affiliate ID 19), never invents a missing line, and never uses historical nflverse odds to trigger a flag. Historical cover rates are exploratory rather than validated betting edges; flags never change Elo picks.
 
 **Game-week injury reports** are shown only when the current NFLverse feed contains a dated report-status record from the selected week before kickoff. Source unavailability or missing players never implies health or confirmed availability. No injury input changes the Phase 2 model.
 
@@ -45,9 +46,9 @@ A fully audited current injury feed, a verified historical DraftKings closing-li
 1. Open https://share.streamlit.io and create or edit an app.
 2. Select repository **christianmellis1-debug/Sunday-slate**, branch **main**, entrypoint **app.py**.
 3. Deploy on Streamlit Community Cloud with Python 3.11.
-4. For **personal/internal testing**, obtain a no-credit-card API key from [TheRundown](https://auth.therundown.io/signup/) (Free: DraftKings pregame prices delayed by five minutes).
+4. DraftKings loads automatically from ESPN without any secret. For optional FanDuel coverage through TheRundown, for **personal/internal testing**, obtain a no-credit-card API key from [TheRundown](https://auth.therundown.io/signup/) (Free: DraftKings and FanDuel pregame prices delayed by five minutes).
 5. In Streamlit app settings > **Secrets**, add `THERUNDOWN_API_KEY = "YOUR_KEY"`. Do not commit or display the key.
-6. The app uses nflverse for schedules and scores only. Betting lines and coaching signals use the DraftKings affiliate ID exclusively; absent/blocked/unmatched DraftKings quotes are shown as unavailable. No cross-book fallback is allowed.
+6. The app uses nflverse for schedules and scores only. Coaching signals and value research use DraftKings-attributed quotes exclusively; FanDuel card quotes use their own ESPN provider label or TheRundown affiliate ID 23; absent/blocked/unmatched DraftKings quotes are shown as unavailable. No cross-book fallback is allowed.
 7. **Licensing:** The provider's Free plan is for testing, not unrestricted commercial end-user odds display. Confirm display rights before making a public/commercial odds-display service.
 
 Local development:

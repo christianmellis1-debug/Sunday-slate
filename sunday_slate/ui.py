@@ -101,9 +101,18 @@ def _num(profile: dict | None, key: str, suffix: str = "") -> str:
     return f"{n:.1f}{suffix}" if isinstance(n, (int, float)) and pd.notna(n) else "—"
 
 
+def quote_time(quote):
+    if quote.get("feed") == "ESPN":
+        fetched = escape(str(quote.get("fetched_at") or "unavailable"))
+        return f"Via ESPN · Retrieved {fetched} · provider update time unavailable"
+    updated = escape(str(quote.get("updated_at") or "unavailable"))
+    return f"Via TheRundown · Quote updated {updated} · delayed pregame data"
+
+
 def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict],
               watch: dict | None = None, ben_johnson: dict | None = None,
-              coaching: list[dict] | None = None, dk_quote: dict | None = None) -> str:
+              coaching: list[dict] | None = None, dk_quote: dict | None = None,
+              fd_quote: dict | None = None) -> str:
     home = str(game["home_team"]); away = str(game["away_team"])
     hp = profiles.get(home); ap = profiles.get(away)
     complete = bool(game["completed"])
@@ -128,16 +137,33 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
                          f'<span class="ss-ben-johnson-note">{team} favored by {points:g}'
                          ' · DraftKings only · experimental</span>')
         special_banner = '<div class="ss-coach-row">' + "".join(parts) + '</div>'
-    dk_banner = ""
-    if isinstance(dk_quote, dict) and dk_quote.get("source") == "DraftKings":
+    dk_banner = "" if complete or pending else '<div class="ss-dk-quote"><b>DraftKings odds</b> · Unavailable</div>'
+    if not complete and not pending and isinstance(dk_quote, dict) and dk_quote.get("source") == "DraftKings":
         hs, aw = dk_quote.get("home_spread"), dk_quote.get("away_spread")
         def show_spread(value):
             return "Unavailable" if value is None else f"{float(value):+g}"
         # Data returned by TheRundown may be delayed, even after refresh.
         updated = escape(str(dk_quote.get("updated_at") or "timestamp unavailable"))
-        dk_banner = (f'<div class="ss-dk-quote">DraftKings spread: '
+        dk_banner = (f'<div class="ss-dk-quote"><b>DraftKings odds</b><div>Moneyline: '
+                     f'{escape(away)} {american_text(dk_quote.get("away_moneyline"))} · '
+                     f'{escape(home)} {american_text(dk_quote.get("home_moneyline"))}</div><div>Spread: '
                      f'{escape(away)} {show_spread(aw)} · {escape(home)} {show_spread(hs)}'
-                     f' · Quote updated {updated} · delayed pregame data</div>')
+                     f'</div><div>{quote_time(dk_quote)}</div></div>')
+    fd_banner = ""
+    if not complete and not pending:
+        fd_banner = '<div class="ss-dk-quote"><b>FanDuel odds</b> · Unavailable</div>'
+        if isinstance(fd_quote, dict) and fd_quote.get("source") == "FanDuel":
+            def fd_spread(value):
+                return "Unavailable" if value is None else f"{float(value):+g}"
+            updated = escape(str(fd_quote.get("updated_at") or "timestamp unavailable"))
+            fd_banner = (
+                '<div class="ss-dk-quote"><b>FanDuel odds</b>'
+                f'<div>Moneyline: {escape(away)} {american_text(fd_quote.get("away_moneyline"))}'
+                f' · {escape(home)} {american_text(fd_quote.get("home_moneyline"))}</div>'
+                f'<div>Spread: {escape(away)} {fd_spread(fd_quote.get("away_spread"))}'
+                f' · {escape(home)} {fd_spread(fd_quote.get("home_spread"))}</div>'
+                f'<div>{quote_time(fd_quote)}</div></div>'
+            )
     watch_banner = ""
     watch_caveat = ""
     if flagged:
@@ -155,7 +181,7 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
     # make Markdown treat the matchup or appended prediction as a code block.
     return (
         f'<article class="ss-match{highlight}">'
-        f'{special_banner}{watch_banner}{dk_banner}'
+        f'{special_banner}{watch_banner}{fd_banner}{dk_banner}'
         f'<div class="ss-matchtop"><span>{day}</span><span>{status}{neutral}</span></div>'
         f'<div class="ss-matchup">{_team(away, brands, ap)}<div class="ss-middle">{middle}</div>{_team(home, brands, hp)}</div>'
         f'<div class="ss-bot"><span>Previous weeks: <b>PPG {_num(ap,"ppg")} vs {_num(hp,"ppg")}</b></span><span>Allowed: <b>{_num(ap,"opp_ppg")} vs {_num(hp,"opp_ppg")}</b></span><span>Pass YPG: <b>{_num(ap,"pass_ypg")} vs {_num(hp,"pass_ypg")}</b></span><span>Rush YPG: <b>{_num(ap,"rush_ypg")} vs {_num(hp,"rush_ypg")}</b></span></div>'

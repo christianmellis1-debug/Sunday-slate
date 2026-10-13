@@ -24,6 +24,7 @@ from sunday_slate.injuries import reported_injuries
 from sunday_slate.qb_availability import context as qb_confirmation_context, read_owner_confirmations
 from sunday_slate.watch import game_watch_flags, STAT_COLUMNS as WATCH_STAT_COLUMNS
 from sunday_slate.coach_flags import coaching_flags
+from sunday_slate.espn_odds import ESPNFeedError, fetch_week, match_quotes
 from sunday_slate.draftkings import DKFeedError, fetch_date, match_games, utc_dates
 
 st.set_page_config(page_title="Sunday Slate | NFL Football Analytics", page_icon="🏈", layout="wide", initial_sidebar_state="collapsed")
@@ -70,9 +71,14 @@ def cached_player_stats(season: int):
     return _optional_feed("load_player_stats", season)
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def cached_espn_odds(season: int, week: int):
+    return fetch_week(season, week)
+
+
 @st.cache_data(ttl=1800, show_spinner=False)
 def cached_dk_snapshot(day: str, key: str):
-    return fetch_date(day, key)
+    return fetch_date(day, key, include_fanduel=True)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -158,7 +164,15 @@ except (AttributeError, KeyError, FileNotFoundError, RuntimeError):
     dk_api_key = str(os.environ.get("THERUNDOWN_API_KEY", "")).strip()
 
 dk_by_game = {}
+fd_by_game = {}
 dk_error = None
+if stage == "REG" and utc_dates(slate):
+    try:
+        espn_quotes = match_quotes(slate, cached_espn_odds(season, selected))
+        dk_by_game = espn_quotes["DraftKings"]
+        fd_by_game = espn_quotes["FanDuel"]
+    except ESPNFeedError:
+        st.caption("ESPN odds are temporarily unavailable.")
 if stage == "REG" and dk_api_key:
     dates = utc_dates(slate)
     if dates:
@@ -169,11 +183,12 @@ if stage == "REG" and dk_api_key:
                 if i:
                     sleep(1.05)
                 snapshots[day] = cached_dk_snapshot(day, dk_api_key)
-            dk_by_game = match_games(slate, snapshots)
+            dk_by_game = {**match_games(slate, snapshots), **dk_by_game}
+            fd_by_game = {**match_games(slate, snapshots, book="FanDuel"), **fd_by_game}
         except DKFeedError:
-            dk_error = "DraftKings pregame feed unavailable. No odds-based signals will be shown."
+            dk_error = "Optional FanDuel / DraftKings feed unavailable. ESPN quotes remain available when published."
 elif stage == "REG":
-    dk_error = "DraftKings feed not configured. Set THERUNDOWN_API_KEY in Streamlit Secrets to enable odds-based flags."
+    dk_error = "DraftKings odds load through ESPN without a key. FanDuel uses ESPN when published, or THERUNDOWN_API_KEY in Streamlit Secrets."
 
 if dk_error:
     st.caption(dk_error)
@@ -331,7 +346,7 @@ if load_qb_confirmation:
                "provided by the app owner, are source-labeled and not independently checked. "
                "The original NFL-ELO-1.0 picks and chances stay unchanged.")
 
-st.caption(f"Showing {len(slate)} matchups · Times in CT · Prior-week football statistics · Odds source: DraftKings only, delayed pregame data when configured")
+st.caption(f"Showing {len(slate)} matchups · Times in CT · Prior-week football statistics · Odds: FanDuel and DraftKings, separately labeled · delayed pregame data when configured")
 if slate.empty:
     st.info("No games match these filters. Try clearing your filters.")
 else:
@@ -342,7 +357,8 @@ else:
                 html = game_card(game, brands, profiles,
                                  watch=watch_flags.get(str(game["game_id"])),
                                  coaching=coach_markers.get(str(game["game_id"])),
-                                 dk_quote=dk_by_game.get(str(game["game_id"])))
+                                 dk_quote=dk_by_game.get(str(game["game_id"])),
+                                 fd_quote=fd_by_game.get(str(game["game_id"])))
                 prediction = picks.get(str(game["game_id"]))
                 panels = []
                 if prediction is not None:
@@ -374,7 +390,7 @@ else:
 with st.expander("About these stats and the current build"):
     st.markdown("""**Phase 3:** schedules, recorded scores, team branding, pregame comparisons, research-only market screens and results-based NFL probabilities. Team records and points-per-game are computed from previously completed regular-season games only. Passing and rushing yards per game come from the available earlier-week team summaries. A dash means the data was unavailable; it does not mean zero.
 
-**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. All displayed odds-based coaching flags and value research use *DraftKings-only* pregame prices through TheRundown, not nflverse reference odds. Free-tier prices are delayed and are not confirmed executable quotes. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Quarterback projections and replacement-quality research can be loaded on upcoming current-season games. Depth charts alone do not establish confirmed starters, and no quarterback research changes the official Elo pick. Weather tiers, parlays, and official recommended picks remain unavailable until independently verified.
+**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. All displayed odds-based coaching flags and value research use *DraftKings-only* pregame prices through ESPN or TheRundown, not nflverse reference odds. Free-tier prices are delayed and are not confirmed executable quotes. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Quarterback projections and replacement-quality research can be loaded on upcoming current-season games. Depth charts alone do not establish confirmed starters, and no quarterback research changes the official Elo pick. Weather tiers, parlays, and official recommended picks remain unavailable until independently verified.
 
 **Game to Watch:** An independent informational flag for non-neutral home teams with both stronger pregame offensive and defensive statistical ratings and an advantage magnitude from 0.25 up to (but not including) 0.50. Requires at least three earlier regular-season games and complete two-team weekly records. The flag does not depend on moneylines; it is not a tier or betting recommendation and never overrides the Elo prediction. Flags may change if historical source data is revised or incomplete previous-week results arrive.
 

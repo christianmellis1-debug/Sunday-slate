@@ -1,6 +1,6 @@
-"""DraftKings-only NFL pregame odds adapter, using TheRundown affiliate 19.
+"""Book-specific NFL pregame odds via TheRundown: DraftKings 19, FanDuel 23.
 
-No nflverse odds, another sportsbook, or unauthenticated fallback is permitted.
+Each quote is isolated to the requested book. No reference-odds fallback.
 """
 import json
 import math
@@ -63,8 +63,11 @@ def _spread_value(line):
                 return _number(match.group(1))
     return None
 
-def parse_event(event):
-    """Return one authenticated DK-only event; missing/ambiguous sides fail closed."""
+BOOKS = {"DraftKings": "19", "FanDuel": "23"}
+
+def parse_event(event, book="DraftKings"):
+    """Return one book-specific event; missing/ambiguous sides fail closed."""
+    affiliate = BOOKS[book]
     if not isinstance(event, dict):
         return None
     teams = event.get("teams")
@@ -99,7 +102,7 @@ def parse_event(event):
             line = lines[0]
             if line.get("is_main_line") is False or line.get("closed_at"):
                 continue
-            dk = (line.get("prices") or {}).get("19")
+            dk = (line.get("prices") or {}).get(affiliate)
             if not isinstance(dk, dict):
                 continue
             price = _number(dk.get("price"))
@@ -117,15 +120,15 @@ def parse_event(event):
     hs, aw = spreads.get(home), spreads.get(away)
     if hs is None or aw is None or abs(hs + aw) > .001:
         hs = aw = None
-    return {"source": "DraftKings", "home": home, "away": away,
+    return {"source": book, "home": home, "away": away,
             "home_spread": hs, "away_spread": aw,
             "home_moneyline": mls.get(home), "away_moneyline": mls.get(away),
             "updated_at": max(updates) if updates else None}
 
-def fetch_date(day, key):
+def fetch_date(day, key, include_fanduel=False):
     if not key or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
         raise DKFeedError("DK feed not configured")
-    params = urlencode({"market_ids": "1,2", "affiliate_ids": "19",
+    params = urlencode({"market_ids": "1,2", "affiliate_ids": "19,23" if include_fanduel else "19",
                         "main_line": "true", "hide_closed": "true"})
     url = f"https://therundown.io/api/v2/sports/2/events/{day}?{params}"
     req = Request(url, headers={"X-TheRundown-Key": key, "Accept": "application/json"})
@@ -151,13 +154,13 @@ def utc_dates(slate, now=None):
             dates.add(kickoff.tz_convert("UTC").strftime("%Y-%m-%d"))
     return sorted(dates)[:5]
 
-def match_games(slate, snapshots):
+def match_games(slate, snapshots, book="DraftKings"):
     if slate is None or slate.empty or "kickoff_ct" not in slate:
         return {}
     keyed = {}
     for day, payload in snapshots.items():
         for event in payload.get("events") or []:
-            quote = parse_event(event)
+            quote = parse_event(event, book)
             if quote is None:
                 continue
             event_day = str(event.get("event_date") or day)[:10]

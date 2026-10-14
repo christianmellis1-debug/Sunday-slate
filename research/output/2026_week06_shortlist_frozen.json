@@ -1,0 +1,70 @@
+{
+  "type": "Research-only fixed pregame candidate shortlist",
+  "model": "NFL-ELO-1.0",
+  "selection_policy": "Tier 1–2 plus stronger Tier 3",
+  "season": 2026,
+  "week": 6,
+  "archived_snapshot_sha256": "e1a202c17690e02edd5d7aaa75546ce9efd4255c25f648a2f82593d57945b728",
+  "archived_snapshot_created_at_utc": "2026-10-13T16:03:27.915245+00:00",
+  "generated_date": "2026-10-14",
+  "source": "research/snapshots/2026_week_06.json",
+  "market_odds_used": false,
+  "betting_value_assessed": false,
+  "picks": [
+    {
+      "rank": 1,
+      "game_id": "2026_06_WAS_SF",
+      "away": "WAS",
+      "home": "SF",
+      "winner": "SF",
+      "tier": 1,
+      "elo_win_probability": 0.78029752,
+      "ppg_projected_margin_for_home": 11.5,
+      "elo_challenger_agree": true
+    },
+    {
+      "rank": 2,
+      "game_id": "2026_06_NYJ_NE",
+      "away": "NYJ",
+      "home": "NE",
+      "winner": "NE",
+      "tier": 1,
+      "elo_win_probability": 0.76890097,
+      "ppg_projected_margin_for_home": 3.9,
+      "elo_challenger_agree": true
+    },
+    {
+      "rank": 3,
+      "game_id": "2026_06_ARI_LA",
+      "away": "ARI",
+      "home": "LA",
+      "winner": "LA",
+      "tier": 1,
+      "elo_win_probability": 0.76550255,
+      "ppg_projected_margin_for_home": 7.3,
+      "elo_challenger_agree": true
+    },
+    {
+      "rank": 4,
+      "game_id": "2026_06_LAC_KC",
+      "away": "LAC",
+      "home": "KC",
+      "winner": "KC",
+      "tier": 2,
+      "elo_win_probability": 0.68033999,
+      "ppg_projected_margin_for_home": 11.625,
+      "elo_challenger_agree": true
+    },
+    {
+      "rank": 5,
+      "game_id": "2026_06_TEN_IND",
+      "away": "TEN",
+      "home": "IND",
+      "winner": "IND",
+      "tier": 3,
+      "elo_win_probability": 0.730994,
+      "ppg_projected_margin_for_home": 5.7,
+      "elo_challenger_agree": true
+    }
+  ]
+}

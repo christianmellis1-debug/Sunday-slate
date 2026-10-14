@@ -37,7 +37,7 @@ def main():
                             f"events/{event_id}/competitions/{event_id}/odds?limit=100")
                 try:
                     core = get(core_url)
-                    result["core"] = {"count":core.get("count"),"items":core.get("items",[])[:4]}
+                    result["core"] = {"count":core.get("count"),"items":core.get("items",[])[:4]}\n                    for requested_id in ("58","100"):\n                        try:\n                            direct=get(core_url.rsplit("?",1)[0].replace("/odds","/odds/"+requested_id))\n                            result.setdefault("direct_providers",{})[requested_id] = (direct or {}).get("provider")\n                        except Exception as e:\n                            result.setdefault("direct_providers",{})[requested_id] = str(e)
                     for i,item in enumerate(core.get("items",[])[:2]):
                         try:
                             row=get(item.get("$ref",""))

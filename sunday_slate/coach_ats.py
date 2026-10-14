@@ -83,3 +83,52 @@ def context(game, history, dk_quote=None, fd_quote=None, now=None):
                 role_record=record(relevant), combined_record=record(relevant[relevant.venue == venue])))
         output.append(item)
     return output
+
+
+def weekly_mismatch(slate, history, quotes):
+    """Select one full-slate leader; no minimum beyond a prior ATS decision."""
+    candidates = []
+    for _, game in slate.iterrows():
+        gid = str(game['game_id'])
+        quote = quotes.get(gid)
+        source = 'DraftKings'
+        if bool(game.get('completed', False)):
+            line = game.get('spread_line')
+            quote = dict(home_spread=-float(line), away_spread=float(line)) if pd.notna(line) else None
+            source = 'Historical nflverse reference spread'
+        if not quote:
+            continue
+        try:
+            home, away = float(quote['home_spread']), float(quote['away_spread'])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if not all(map(math.isfinite, (home, away))) or abs(home + away) > .001:
+            continue
+        cutoff = min(pd.to_datetime(game['gameday'], utc=True), pd.Timestamp.now(tz='UTC').normalize())
+        past = history[history.day < cutoff]
+        sides = []
+        for side, handicap in [('away', away), ('home', home)]:
+            name = game.get(side + '_coach')
+            if not isinstance(name, str) or not name.strip():
+                break
+            venue = 'Neutral' if str(game.get('location')).lower() == 'neutral' else (
+                ('Road' if side == 'away' else 'Home') if str(game.get('location')).lower() == 'home' else 'Unknown')
+            if venue == 'Unknown':
+                break
+            role = 'Favorite' if handicap < 0 else 'Underdog' if handicap > 0 else 'Pick’em'
+            r = record(past[(past.coach == name.strip().casefold()) & (past.venue == venue) & (past.role == role)])
+            if r['pct'] is None:
+                break
+            sides.append(dict(team=str(game[side+'_team']), coach=name, situation=venue+' '+role.lower(), record=r))
+        if len(sides) != 2:
+            continue
+        gap = abs(sides[0]['record']['pct'] - sides[1]['record']['pct'])
+        if gap < 1e-9:
+            continue
+        candidates.append(dict(game_id=gid, gap=gap, sides=sides, source=source,
+                               team=max(sides, key=lambda c: c['record']['pct'])['team']))
+    # Stable game-ID ordering breaks equal gaps, so filters never create a second flag.
+    if not candidates:
+        return {}
+    winner = sorted(candidates, key=lambda c: (-round(c['gap'], 10), c['game_id']))[0]
+    return {winner['game_id']: winner}

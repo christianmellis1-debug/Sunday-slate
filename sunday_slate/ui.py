@@ -151,10 +151,34 @@ def coach_ats_panel(coaches):
     return ''.join(parts)
 
 
+def coach_mismatch_panel(flag):
+    if not flag:
+        return ''
+    rows = []
+    for side in flag['sides']:
+        r = side['record']
+        rows.append(f"<p><b>{escape(side['team'])} · {escape(side['coach'])}</b><br>"
+                    f"{escape(side['situation'])}: {r['wins']}–{r['losses']}–{r['pushes']} ATS · "
+                    f"{r['pct']:.1f}% · {r['games']} games</p>")
+    return ('<details class="ss-card-details"><summary>Why this coach mismatch?</summary>'
+            + ''.join(rows)
+            + f"<p><b>{flag['gap']:.1f} percentage-point gap · higher rate: {escape(flag['team'])}</b></p>"
+            + '<p>The largest absolute gap between the two coaches’ ATS cover percentages on this week’s eligible slate. '
+              'Each record matches the current venue and favorite/underdog role. No 10-game minimum; '
+              'both coaches need at least one prior win or loss in that situation. '
+              'Pushes are excluded from cover percentage.</p>'
+            + f"<p>Regular-season head-coaching games since 2019 across all teams, before each matchup date. "
+              f"Situation source: {escape(flag['source'])}. Missing records or spreads are skipped. "
+              'Equal largest gaps use game-ID order to flag only one game. Filters do not select a replacement. '
+              'Current spreads can change the selection. Small samples can create large gaps; '
+              'this is a research flag and does not change the model prediction.</p></details>')
+
+
 def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict],
               watch: dict | None = None, ben_johnson: dict | None = None,
               coaching: list[dict] | None = None, dk_quote: dict | None = None,
-              fd_quote: dict | None = None, coach_ats: list | None = None) -> str:
+              fd_quote: dict | None = None, coach_ats: list | None = None,
+              coach_mismatch: dict | None = None) -> str:
     home = str(game["home_team"]); away = str(game["away_team"])
     hp = profiles.get(home); ap = profiles.get(away)
     complete = bool(game["completed"])
@@ -179,6 +203,8 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
                          f'<span class="ss-ben-johnson-note">{team} favored by {points:g}'
                          ' · DraftKings only · experimental</span>')
         special_banner = '<div class="ss-coach-row">' + "".join(parts) + '</div>'
+    if coach_mismatch:
+        special_banner += '<div class="ss-coach-row"><span class="ss-coach-flag">Potential coach mismatch</span></div>'
     sources = []
     quote = dk_quote if isinstance(dk_quote, dict) and dk_quote.get('source') == 'DraftKings' else None
     show_odds = not complete and not pending
@@ -237,6 +263,7 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
         f'<details class="ss-card-details"><summary>Team stats</summary>'
         f'<div class="ss-bot"><span>Previous weeks: <b>PPG {_num(ap,"ppg")} vs {_num(hp,"ppg")}</b></span><span>Allowed: <b>{_num(ap,"opp_ppg")} vs {_num(hp,"opp_ppg")}</b></span><span>Pass YPG: <b>{_num(ap,"pass_ypg")} vs {_num(hp,"pass_ypg")}</b></span><span>Rush YPG: <b>{_num(ap,"rush_ypg")} vs {_num(hp,"rush_ypg")}</b></span></div>'
         f'</details>'
+        f'{coach_mismatch_panel(coach_mismatch)}'
         f'{coach_ats_panel(coach_ats)}'
         f'<details class="ss-card-details"><summary>Odds sources &amp; notes</summary>{"".join(sources)}{watch_caveat}</details>'
         f'</article>'

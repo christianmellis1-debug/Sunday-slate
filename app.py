@@ -24,7 +24,7 @@ from sunday_slate.injuries import reported_injuries
 from sunday_slate.qb_availability import context as qb_confirmation_context, read_owner_confirmations
 from sunday_slate.watch import game_watch_flags, STAT_COLUMNS as WATCH_STAT_COLUMNS
 from sunday_slate.coach_flags import coaching_flags
-from sunday_slate.coach_ats import coach_history, context as coach_ats_context
+from sunday_slate.coach_ats import coach_history, context as coach_ats_context, weekly_mismatch
 from sunday_slate.espn_odds import ESPNFeedError, fetch_week, match_quotes
 from sunday_slate.draftkings import DKFeedError, fetch_date, match_games, utc_dates
 
@@ -191,6 +191,9 @@ elif stage == "REG":
 if dk_error and dk_api_key:
     st.caption(dk_error)
 
+ats_history = coach_history(all_games)
+coach_mismatches = weekly_mismatch(slate, ats_history, dk_by_game) if stage == 'REG' else {}
+
 coach_markers = coaching_flags(slate, season, selected, dk_by_game) if stage == "REG" else {}
 coach_specials = {gid: marker for gid, markers in coach_markers.items()
                   for marker in markers if marker["name"] == "BEN JOHNSON SPECIAL"}
@@ -345,7 +348,6 @@ if load_qb_confirmation:
                "The original NFL-ELO-1.0 picks and chances stay unchanged.")
 
 st.caption(f"Showing {len(slate)} matchups · Times in CT · Prior-week football statistics · DraftKings odds")
-ats_history = coach_history(all_games)
 if slate.empty:
     st.info("No games match these filters. Try clearing your filters.")
 else:
@@ -356,6 +358,7 @@ else:
                 html = game_card(game, brands, profiles,
                                  watch=watch_flags.get(str(game["game_id"])),
                                  coaching=coach_markers.get(str(game["game_id"])),
+                                 coach_mismatch=coach_mismatches.get(str(game["game_id"])),
                                  dk_quote=dk_by_game.get(str(game["game_id"])),
                                  coach_ats=coach_ats_context(game, ats_history,
                                      dk_by_game.get(str(game["game_id"]))))

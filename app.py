@@ -27,6 +27,7 @@ from sunday_slate.coach_flags import coaching_flags
 from sunday_slate.coach_ats import coach_history, context as coach_ats_context, weekly_mismatch
 from sunday_slate.espn_odds import ESPNFeedError, fetch_week, match_quotes
 from sunday_slate.draftkings import DKFeedError, fetch_date, match_games, utc_dates
+from sunday_slate.line_movement import load_history, change_for_game
 
 st.set_page_config(page_title="Sunday Slate | NFL Football Analytics", page_icon="🏈", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(css(), unsafe_allow_html=True)
@@ -80,6 +81,12 @@ def cached_espn_odds(season: int, week: int):
 @st.cache_data(ttl=1800, show_spinner=False)
 def cached_dk_snapshot(day: str, key: str):
     return fetch_date(day, key)
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def cached_line_history():
+    # Branch-backed snapshots survive Streamlit restarts without paid storage.
+    return load_history()
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -190,6 +197,8 @@ elif stage == "REG":
 
 if dk_error and dk_api_key:
     st.caption(dk_error)
+
+line_history = cached_line_history() if stage == 'REG' and season == now.year else {'games': {}}
 
 ats_history = coach_history(all_games)
 coach_mismatches = weekly_mismatch(slate, ats_history, dk_by_game) if stage == 'REG' else {}
@@ -348,6 +357,10 @@ if load_qb_confirmation:
                "The original NFL-ELO-1.0 picks and chances stay unchanged.")
 
 st.caption(f"Showing {len(slate)} matchups · Times in CT · Prior-week football statistics · DraftKings odds")
+if stage == "REG" and season == now.year:
+    st.caption("Line movement compares first captured vs latest ESPN-published DraftKings quotes. "
+               "History is collected approximately every 3 hours; no earlier opening lines are invented. "
+               "Tracking begins after the collector’s first successful run.")
 if slate.empty:
     st.info("No games match these filters. Try clearing your filters.")
 else:
@@ -361,7 +374,9 @@ else:
                                  coach_mismatch=coach_mismatches.get(str(game["game_id"])),
                                  dk_quote=dk_by_game.get(str(game["game_id"])),
                                  coach_ats=coach_ats_context(game, ats_history,
-                                     dk_by_game.get(str(game["game_id"]))))
+                                      dk_by_game.get(str(game["game_id"]))),
+                                  line_movement=change_for_game(line_history, game,
+                                      dk_by_game.get(str(game["game_id"]))))
                 prediction = picks.get(str(game["game_id"]))
                 panels = []
                 if prediction is not None:
@@ -396,6 +411,8 @@ with st.expander("About these stats and the current build"):
 **Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. All displayed odds-based coaching flags and value research use *DraftKings-only* pregame prices through ESPN or TheRundown, not nflverse reference odds. Free-tier prices are delayed and are not confirmed executable quotes. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Quarterback projections and replacement-quality research can be loaded on upcoming current-season games. Depth charts alone do not establish confirmed starters, and no quarterback research changes the official Elo pick. Weather tiers, parlays, and official recommended picks remain unavailable until independently verified.
 
 **Game to Watch:** An independent informational flag for non-neutral home teams with both stronger pregame offensive and defensive statistical ratings and an advantage magnitude from 0.25 up to (but not including) 0.50. Requires at least three earlier regular-season games and complete two-team weekly records. The flag does not depend on moneylines; it is not a tier or betting recommendation and never overrides the Elo prediction. Flags may change if historical source data is revised or incomplete previous-week results arrive.
+
+**Line movement:** Captures DraftKings-attributed pregame quotes from ESPN roughly every three hours, when the scheduled collector runs and quotes are published. The first captured quote is not necessarily the opening line. Changes in a team's spread or moneyline are shown separately with observation times; these are not live executable prices, and saved history cannot be reconstructed for earlier games. Historical snapshots remain in the dedicated line-history branch rather than Streamlit's temporary filesystem. Line movement does not change Elo picks or create betting tiers.
 
 **DraftKings Coaching Trends:** Ben Johnson Special when his team is favored by 0.5–3; Schottenheimer Favorite when Dallas is favored by at least 0.5; Stefanski Mid-Range Favorite when his team is favored by 3.5–7. All require DraftKings-attributed prices; if those are absent, no flag appears. Coaching flags do not change Elo and are not proven betting edges.
 

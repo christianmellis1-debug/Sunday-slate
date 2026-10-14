@@ -21,7 +21,10 @@ from urllib.request import Request, urlopen
 BASE = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
 CORE = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events"
 OUTPUT = Path("backtests/output")
-PROVIDERS = {2024: ("58", "ESPN BET"), 2025: ("100", "DraftKings"), 2026: ("100", "DraftKings")}
+# The archive changed sportsbooks during 2025: prefer DK for each game,
+# use ESPN BET only when DK is not published (never blend within a game).
+PROVIDERS = {2024: [("58", "ESPN BET")], 2025: [("100", "DraftKings"), ("58", "ESPN BET")],
+             2026: [("100", "DraftKings")]}
 WEEKS = {2024: range(1, 19), 2025: range(1, 19), 2026: range(1, 7)}
 MAX_WORKERS = 12
 
@@ -123,17 +126,26 @@ def load_events():
 
 def fetch_odds(game):
     season=game["season"]
-    provider_id,provider_name=PROVIDERS[season]
-    endpoint=f"{CORE}/{game['event_id']}/competitions/{game['comp_id']}/odds/{provider_id}"
-    try:
-        odds=get(endpoint)
-    except Exception as exc:
-        return None, f"FETCH_{type(exc).__name__}"
+    odds=None
+    provider_name=None
+    for provider_id, proposed_name in PROVIDERS[season]:
+        endpoint=f"{CORE}/{game['event_id']}/competitions/{game['comp_id']}/odds/{provider_id}"
+        try:
+            trial=get(endpoint)
+        except Exception as exc:
+            return None, f"FETCH_{type(exc).__name__}"
+        if trial is None:
+            continue
+        provider=(trial.get("provider") or {})
+        returned_name="".join(ch for ch in str(provider.get("name","")).casefold() if ch.isalnum())
+        expected_name="".join(ch for ch in proposed_name.casefold() if ch.isalnum())
+        if str(provider.get("id")) != provider_id or returned_name != expected_name:
+            return None,"BOOK_MISMATCH"
+        odds=trial
+        provider_name=proposed_name
+        break
     if not odds:
         return None, "NOT_PUBLISHED"
-    provider=(odds.get("provider") or {})
-    if str(provider.get("id")) != provider_id or str(provider.get("name","")).casefold()!=provider_name.casefold():
-        return None,"BOOK_MISMATCH"
     a,h="awayTeamOdds","homeTeamOdds"
     away_open=spread_value(odds,a,"open")
     away_close=spread_value(odds,a,"close")
@@ -226,8 +238,8 @@ def main():
         "generated_utc":datetime.now(timezone.utc).isoformat(),
         "seasons":[2024,2025,2026],"stage":"regular season only",
         "source":"ESPN Core odds open/close + ESPN scoreboard final scores",
-        "providers":{str(s):name for s,(_,name) in PROVIDERS.items()},
-        "caution":"2024 ESPN BET and 2025-2026 DraftKings are separate sportsbook cohorts; pooled metrics mix bookmakers. No retrospective exact quote timestamps or proof of executable open/close prices.",
+        "providers":{str(s):[name for _,name in names] for s,names in PROVIDERS.items()},
+        "caution":"2024 ESPN BET, 2025 mixed ESPN BET/DraftKings across games, and 2026 DraftKings are separate sportsbook cohorts; pooled metrics mix bookmakers. No retrospective exact quote timestamps or proof of executable open/close prices.",
         "audit":dict(audit),
         "all_valid_odds_games":len(rows),
         "all_spread_movers":len(moved),
@@ -237,6 +249,7 @@ def main():
         "by_magnitude_2025_2026_draftkings":group([r for r in moved if r["provider"]=="DraftKings"],bucket),
         "by_season_magnitude":group(moved,lambda x:f"{x['season']} | {bucket(x)}"),
         "by_provider":group(moved,lambda x:x["provider"]),
+        "by_season_provider":group(moved,lambda x:str(x["season"])+" | "+x["provider"]),
         "by_open_role":group(moved,lambda x:x["moved_open_role"]),
         "by_moved_side":group(moved,lambda x:x["moved_side"]),
         "by_week_2026":group([r for r in moved if r["season"]==2026],lambda x:f"Week {x['week']}"),
@@ -250,12 +263,12 @@ def main():
             writer.writerows(rows)
 
     md=["# NFL opening-to-closing spread movement backtest","",
-        "2024: ESPN BET. 2025–2026 (completed weeks 1–6): DraftKings.",
+        "2024: ESPN BET. 2025: DraftKings if published, otherwise ESPN BET (same-book comparisons only). 2026: DraftKings (completed games through October 14).",
         "Only regular-season final games with complete and internally consistent same-book opening/closing spreads are included.",
         "The movement side is whichever team saw its signed spread decrease, making the market more favorable to it.",
         "SU means outright wins; ATS is separately calculated against opening and closing spreads; pushes are excluded from percentages.",
         "Source: ESPN scoreboards and ESPN Core odds. This is independent of Sunday Slate's Elo model.",""]
-    for key in ("by_season","by_magnitude_2025_2026_draftkings","by_magnitude_all_books","by_open_role"):
+    for key in ("by_season_provider","by_season","by_magnitude_2025_2026_draftkings","by_magnitude_all_books","by_open_role"):
         md.extend(["## "+key.replace("_"," "), "| Group | Games | SU W-L-P (%) | ATS open W-L-P (%) | ATS close W-L-P (%) |",
                    "|---|---:|---|---|---|"])
         for label,record in summary[key].items():

@@ -10,6 +10,7 @@ import pandas as pd
 from sunday_slate.metrics import CENTRAL, record_label, time_label
 from sunday_slate.model import rationale
 from sunday_slate.market import american_text
+from sunday_slate.line_movement import render_movement
 
 _STYLE = """
 <style>
@@ -34,6 +35,7 @@ _STYLE = """
 .ss-coach-row{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center;margin:.15rem 0 .8rem;font-size:.77rem}
 .ss-coach-flag{background:#3b2a58;color:#ecd9ff;border:1px solid #9d7dc9;border-radius:999px;padding:.28rem .6rem;font-weight:840}
 .ss-dk-quote{font-size:.76rem;color:#9ee7df;margin:.3rem 0 .7rem;font-weight:600}
+.ss-line-move{display:inline-block;border:1px solid #47718d;border-radius:7px;background:#142b3d;color:#b6e7fa;font-size:.72rem;font-weight:720;padding:.28rem .55rem;margin:.5rem 0 .25rem}
 
 .ss-matchtop{display:flex;justify-content:space-between;gap:.7rem;align-items:center;color:var(--ss-muted);font-size:.78rem;margin-bottom:.95rem}
 .ss-matchup{display:grid;grid-template-columns:1fr auto 1fr;gap:.6rem;align-items:center;text-align:center;}
@@ -178,7 +180,7 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
               watch: dict | None = None, ben_johnson: dict | None = None,
               coaching: list[dict] | None = None, dk_quote: dict | None = None,
               fd_quote: dict | None = None, coach_ats: list | None = None,
-              coach_mismatch: dict | None = None) -> str:
+              coach_mismatch: dict | None = None, line_movement: dict | None = None) -> str:
     home = str(game["home_team"]); away = str(game["away_team"])
     hp = profiles.get(home); ap = profiles.get(away)
     complete = bool(game["completed"])
@@ -265,6 +267,7 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
         f'</details>'
         f'{coach_mismatch_panel(coach_mismatch)}'
         f'{coach_ats_panel(coach_ats)}'
+         f'{render_movement(line_movement, away, home)}'
         f'<details class="ss-card-details"><summary>Odds sources &amp; notes</summary>{"".join(sources)}{watch_caveat}</details>'
         f'</article>'
     )

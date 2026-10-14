@@ -112,10 +112,34 @@ def quote_time(quote):
     return f"Via TheRundown · Quote updated {updated} · delayed pregame data"
 
 
+def coach_ats_panel(coaches):
+    if not coaches:
+        return ""
+    def fmt(r):
+        if not r['games']:
+            return "No qualifying games"
+        pct = f" · {r['pct']:.1f}%" if r['pct'] is not None else ""
+        return f"{r['wins']}–{r['losses']}–{r['pushes']}{pct} · {r['games']} games"
+    parts = ['<div class="ss-dk-quote"><b>Head coach ATS · This matchup</b>']
+    for c in coaches:
+        parts.append(f"<div><b>{escape(c['team'])} · {escape(c['coach'] or 'Coach unavailable')}</b></div>")
+        if not c['coach']:
+            continue
+        parts.append(f"<div>{escape(c['venue'])}: {fmt(c['venue_record'])}</div>")
+        for sit in c['situations']:
+            parts.append(f"<div>{escape(sit['role'])}: {fmt(sit['role_record'])}</div>")
+            parts.append(f"<div><b>{escape(c['venue'])} {escape(sit['role'].lower())}: {fmt(sit['combined_record'])}</b></div>")
+            parts.append(f"<div>{escape(sit['book'])} {sit['spread']:+g} defines this situation</div>")
+        if not c['situations']:
+            parts.append('<div>Favorite/underdog splits unavailable until a spread is available.</div>')
+    parts.append(f"<div>{escape(coaches[0]['seasons'])} regular season · Head-coaching games across all teams · W–L–P · Pushes excluded from %. Historical nflverse reference spreads; not sportsbook-specific. Prior dates only.</div></div>")
+    return ''.join(parts)
+
+
 def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict],
               watch: dict | None = None, ben_johnson: dict | None = None,
               coaching: list[dict] | None = None, dk_quote: dict | None = None,
-              fd_quote: dict | None = None) -> str:
+              fd_quote: dict | None = None, coach_ats: list | None = None) -> str:
     home = str(game["home_team"]); away = str(game["away_team"])
     hp = profiles.get(home); ap = profiles.get(away)
     complete = bool(game["completed"])
@@ -188,7 +212,7 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
         f'<div class="ss-matchtop"><span>{day}</span><span>{status}{neutral}</span></div>'
         f'<div class="ss-matchup">{_team(away, brands, ap)}<div class="ss-middle">{middle}</div>{_team(home, brands, hp)}</div>'
         f'<div class="ss-bot"><span>Previous weeks: <b>PPG {_num(ap,"ppg")} vs {_num(hp,"ppg")}</b></span><span>Allowed: <b>{_num(ap,"opp_ppg")} vs {_num(hp,"opp_ppg")}</b></span><span>Pass YPG: <b>{_num(ap,"pass_ypg")} vs {_num(hp,"pass_ypg")}</b></span><span>Rush YPG: <b>{_num(ap,"rush_ypg")} vs {_num(hp,"rush_ypg")}</b></span></div>'
-        f'{watch_caveat}'
+        f'{coach_ats_panel(coach_ats)}{watch_caveat}'
         f'</article>'
     )
 

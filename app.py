@@ -24,6 +24,7 @@ from sunday_slate.injuries import reported_injuries
 from sunday_slate.qb_availability import context as qb_confirmation_context, read_owner_confirmations
 from sunday_slate.watch import game_watch_flags, STAT_COLUMNS as WATCH_STAT_COLUMNS
 from sunday_slate.coach_flags import coaching_flags
+from sunday_slate.coach_ats import coach_history, context as coach_ats_context
 from sunday_slate.fanduel_covers import CoversFeedError, fetch_snapshot as fetch_covers, match_quotes as match_covers
 from sunday_slate.espn_odds import ESPNFeedError, fetch_week, match_quotes
 from sunday_slate.draftkings import DKFeedError, fetch_date, match_games, utc_dates
@@ -359,6 +360,7 @@ if load_qb_confirmation:
                "The original NFL-ELO-1.0 picks and chances stay unchanged.")
 
 st.caption(f"Showing {len(slate)} matchups · Times in CT · Prior-week football statistics · Odds: FanDuel and DraftKings, separately labeled · delayed pregame data when configured")
+ats_history = coach_history(all_games)
 if slate.empty:
     st.info("No games match these filters. Try clearing your filters.")
 else:
@@ -370,7 +372,10 @@ else:
                                  watch=watch_flags.get(str(game["game_id"])),
                                  coaching=coach_markers.get(str(game["game_id"])),
                                  dk_quote=dk_by_game.get(str(game["game_id"])),
-                                 fd_quote=fd_by_game.get(str(game["game_id"])))
+                                 fd_quote=fd_by_game.get(str(game["game_id"])),
+                                 coach_ats=coach_ats_context(game, ats_history,
+                                     dk_by_game.get(str(game["game_id"])),
+                                     fd_by_game.get(str(game["game_id"]))))
                 prediction = picks.get(str(game["game_id"]))
                 panels = []
                 if prediction is not None:

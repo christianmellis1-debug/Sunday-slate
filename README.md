@@ -96,3 +96,8 @@ Uses [nflverse](https://github.com/nflverse) and [nflreadpy](https://github.com/
 ## Next phase
 
 Secure timestamped pre-kickoff sportsbook prices and a current injury feed, backtest opponent-adjusted EPA and quarterback availability against frozen baseline without same-week data leakage, then consider official betting tiers *only* with credible prospective evidence.
+
+### Situational head-coach ATS cards
+Each game card displays both head coaches’ applicable home/road/neutral ATS record, favorite/underdog (or pick’em) record, and the combined situation. Uses regular-season head-coaching games across teams since 2019, scored against nflverse historical reference spreads. Wins–losses–pushes, sample size, and cover percentage excluding pushes are shown. Completed prior dates only; the matchup itself and future outcomes are excluded. Missing scores, spreads, coach names, and duplicate game IDs are excluded. Neutral games never count as home or road games.
+
+Current situations use a valid DraftKings spread, then FanDuel if needed. If the books disagree on favorite/underdog status, both labeled situations are displayed. Missing current spreads leave venue history visible without guessing favorite status. This descriptive panel does not change predictions or coaching flags.

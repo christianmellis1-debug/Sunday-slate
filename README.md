@@ -26,9 +26,7 @@ An independent NFL prediction and matchup analytics app on Streamlit Community C
 - Prior-week offensive EPA per passing attempt and rushing carry
 - Defensive EPA-allowed comparisons derived from earlier opposing team boxes
 - Recent (four previous weeks) highest-volume quarterback passer summaries, **not claimed as confirmed starters**
-- FanDuel loads without a key through the public Covers NFL comparison page, with a five-minute cache. Matches require exact home/away teams and Eastern game date/time. Only games in the next 14 days and market timestamps within 24 hours are accepted. The app labels the source as Covers and fails closed if the page structure changes or access fails.
-- Optional additional FanDuel moneylines and spreads displayed separately on upcoming game cards, using TheRundown affiliate 23. The same `THERUNDOWN_API_KEY` enables both books; no new credential is needed. Quotes retain their provider timestamps, and unavailable lines never borrow another book’s prices. Cached snapshots refresh after 30 minutes on app rerun; free-tier source prices are delayed by five minutes. FanDuel display does not alter Elo, DraftKings coaching flags, or DraftKings value research.
-- DraftKings moneylines and spreads load automatically through ESPN without a key, cached for five minutes. FanDuel quotes published by ESPN are also accepted under their own label. The optional TheRundown connection fills missing book-specific quotes, with no cross-book or nflverse fallback. ESPN retrieval times are explicitly distinguished from unavailable provider update times.
+- DraftKings moneylines and spreads load automatically through ESPN without a key, cached for five minutes. The optional TheRundown connection fills missing book-specific quotes, with no cross-book or nflverse fallback. ESPN retrieval times are explicitly distinguished from unavailable provider update times.
 - **Value Research** filter for unverified experimental screen matches, explicitly **not recommended bets**
 - Historical reference-price backtests remain in research code, but are no longer presented as DraftKings results. There is no verified DraftKings historical ROI.
 - [Phase 3 research methodology and limitations](backtests/PHASE3_RESEARCH.md)
@@ -47,7 +45,7 @@ A fully audited current injury feed, a verified historical DraftKings closing-li
 1. Open https://share.streamlit.io and create or edit an app.
 2. Select repository **christianmellis1-debug/Sunday-slate**, branch **main**, entrypoint **app.py**.
 3. Deploy on Streamlit Community Cloud with Python 3.11.
-4. DraftKings loads automatically from ESPN without any secret. For optional FanDuel coverage through TheRundown, for **personal/internal testing**, obtain a no-credit-card API key from [TheRundown](https://auth.therundown.io/signup/) (Free: DraftKings and FanDuel pregame prices delayed by five minutes).
+4. DraftKings loads automatically from ESPN without any secret. For optional DraftKings coverage through TheRundown, for **personal/internal testing**, obtain a no-credit-card API key from [TheRundown](https://auth.therundown.io/signup/) (Free: DraftKings and FanDuel pregame prices delayed by five minutes).
 5. In Streamlit app settings > **Secrets**, add `THERUNDOWN_API_KEY = "YOUR_KEY"`. Do not commit or display the key.
 6. The app uses nflverse for schedules and scores only. Coaching signals and value research use DraftKings-attributed quotes exclusively; FanDuel card quotes use their own ESPN provider label or TheRundown affiliate ID 23; absent/blocked/unmatched DraftKings quotes are shown as unavailable. No cross-book fallback is allowed.
 7. **Licensing:** The provider's Free plan is for testing, not unrestricted commercial end-user odds display. Confirm display rights before making a public/commercial odds-display service.
@@ -100,4 +98,7 @@ Secure timestamped pre-kickoff sportsbook prices and a current injury feed, back
 ### Situational head-coach ATS cards
 Each game card displays both head coaches’ applicable home/road/neutral ATS record, favorite/underdog (or pick’em) record, and the combined situation. Uses regular-season head-coaching games across teams since 2019, scored against nflverse historical reference spreads. Wins–losses–pushes, sample size, and cover percentage excluding pushes are shown. Completed prior dates only; the matchup itself and future outcomes are excluded. Missing scores, spreads, coach names, and duplicate game IDs are excluded. Neutral games never count as home or road games.
 
-Current situations use a valid DraftKings spread, then FanDuel if needed. If the books disagree on favorite/underdog status, both labeled situations are displayed. Missing current spreads leave venue history visible without guessing favorite status. This descriptive panel does not change predictions or coaching flags.
+Current situations use a valid DraftKings spread. Missing current spreads leave venue history visible without guessing favorite status. This descriptive panel does not change predictions or coaching flags.
+
+### Compact matchup cards
+DraftKings odds appear directly below each team name. Each coach’s matching venue-plus-favorite/underdog ATS record stays visible. Other coach splits, team stats, source timestamps, prediction explanation, and matchup research are collapsed by default. FanDuel display and network requests have been removed from the app.

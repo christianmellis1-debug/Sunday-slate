@@ -30,11 +30,11 @@ def test_card_and_flags():
     rendered_row = df.iloc[0].copy()
     rendered_row['kickoff_ct'] = pd.Timestamp('2099-10-18', tz='America/Chicago')
     html = game_card(rendered_row, {}, {}, fd_quote=quote)
-    assert 'FanDuel odds' in html and 'DAL -140' in html and 'NYG +120' in html
-    assert 'DAL -3' in html and 'NYG +3' in html
+    assert 'FanDuel' not in html
+    assert 'Odds unavailable' in html
     rendered_row['completed'] = True
     rendered_row['home_score'], rendered_row['away_score'] = 24, 17
-    assert 'FanDuel odds' not in game_card(rendered_row, {}, {}, fd_quote=quote)
+    assert '<td>FanDuel</td>' not in game_card(rendered_row, {}, {}, fd_quote=quote)
 
 
 def test_missing_and_wrong_date():

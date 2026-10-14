@@ -25,7 +25,6 @@ from sunday_slate.qb_availability import context as qb_confirmation_context, rea
 from sunday_slate.watch import game_watch_flags, STAT_COLUMNS as WATCH_STAT_COLUMNS
 from sunday_slate.coach_flags import coaching_flags
 from sunday_slate.coach_ats import coach_history, context as coach_ats_context
-from sunday_slate.fanduel_covers import CoversFeedError, fetch_snapshot as fetch_covers, match_quotes as match_covers
 from sunday_slate.espn_odds import ESPNFeedError, fetch_week, match_quotes
 from sunday_slate.draftkings import DKFeedError, fetch_date, match_games, utc_dates
 
@@ -74,18 +73,13 @@ def cached_player_stats(season: int):
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def cached_fanduel_covers():
-    return fetch_covers()
-
-
-@st.cache_data(ttl=300, show_spinner=False)
 def cached_espn_odds(season: int, week: int):
     return fetch_week(season, week)
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def cached_dk_snapshot(day: str, key: str):
-    return fetch_date(day, key, include_fanduel=True)
+    return fetch_date(day, key)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -171,13 +165,11 @@ except (AttributeError, KeyError, FileNotFoundError, RuntimeError):
     dk_api_key = str(os.environ.get("THERUNDOWN_API_KEY", "")).strip()
 
 dk_by_game = {}
-fd_by_game = {}
 dk_error = None
 if stage == "REG" and utc_dates(slate):
     try:
         espn_quotes = match_quotes(slate, cached_espn_odds(season, selected))
         dk_by_game = espn_quotes["DraftKings"]
-        fd_by_game = espn_quotes["FanDuel"]
     except ESPNFeedError:
         st.caption("ESPN odds are temporarily unavailable.")
 if stage == "REG" and dk_api_key:
@@ -191,17 +183,10 @@ if stage == "REG" and dk_api_key:
                     sleep(1.05)
                 snapshots[day] = cached_dk_snapshot(day, dk_api_key)
             dk_by_game = {**match_games(slate, snapshots), **dk_by_game}
-            fd_by_game = {**match_games(slate, snapshots, book="FanDuel"), **fd_by_game}
         except DKFeedError:
-            dk_error = "Optional FanDuel / DraftKings feed unavailable. ESPN quotes remain available when published."
+            dk_error = "Optional DraftKings feed unavailable. ESPN quotes remain available when published."
 elif stage == "REG":
-    dk_error = "DraftKings odds load through ESPN without a key. FanDuel loads via Covers, with optional ESPN/TheRundown coverage."
-
-if stage == "REG" and utc_dates(slate):
-    try:
-        fd_by_game = {**match_covers(slate, cached_fanduel_covers()), **fd_by_game}
-    except CoversFeedError:
-        st.caption("FanDuel via Covers is temporarily unavailable.")
+    dk_error = "DraftKings odds load through ESPN without a key."
 
 if dk_error and dk_api_key:
     st.caption(dk_error)
@@ -359,7 +344,7 @@ if load_qb_confirmation:
                "provided by the app owner, are source-labeled and not independently checked. "
                "The original NFL-ELO-1.0 picks and chances stay unchanged.")
 
-st.caption(f"Showing {len(slate)} matchups · Times in CT · Prior-week football statistics · Odds: FanDuel and DraftKings, separately labeled · delayed pregame data when configured")
+st.caption(f"Showing {len(slate)} matchups · Times in CT · Prior-week football statistics · DraftKings odds")
 ats_history = coach_history(all_games)
 if slate.empty:
     st.info("No games match these filters. Try clearing your filters.")
@@ -372,14 +357,12 @@ else:
                                  watch=watch_flags.get(str(game["game_id"])),
                                  coaching=coach_markers.get(str(game["game_id"])),
                                  dk_quote=dk_by_game.get(str(game["game_id"])),
-                                 fd_quote=fd_by_game.get(str(game["game_id"])),
                                  coach_ats=coach_ats_context(game, ats_history,
-                                     dk_by_game.get(str(game["game_id"])),
-                                     fd_by_game.get(str(game["game_id"]))))
+                                     dk_by_game.get(str(game["game_id"]))))
                 prediction = picks.get(str(game["game_id"]))
                 panels = []
                 if prediction is not None:
-                    panels.append(prediction_panel(prediction))
+                    html = html.replace("<!--prediction-->", prediction_panel(prediction))
                     if load_qb_confirmation and not bool(game["completed"]):
                         try:
                             qb_info = qb_confirmation_context(
@@ -401,7 +384,7 @@ else:
                         panels.append(injury_panel(str(game["home_team"]), str(game["away_team"]),
                                                    injury_research, source_available=injury_source_available))
                 if panels:
-                    html = html.replace("</article>", "".join(panels) + "</article>")
+                    html = html.replace("</article>", '<details class="ss-card-details"><summary>More matchup research</summary>' + "".join(panels) + "</details></article>")
                 st.markdown(html, unsafe_allow_html=True)
 
 with st.expander("About these stats and the current build"):

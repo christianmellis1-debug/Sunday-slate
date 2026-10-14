@@ -55,6 +55,21 @@ div[data-testid="stMetric"]{background:#132137;border:1px solid #28405a;border-r
 .ss-research summary{cursor:pointer;color:#79d6e8;font-weight:750;margin-bottom:.4rem}
 .ss-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem .8rem;padding:.45rem 0}
 .ss-chip{font-size:.72rem;color:#e3effd;background:#173044;border:1px solid #255c6b;border-radius:6px;padding:.2rem .4rem}
+.ss-odds-table{width:100%;border-collapse:collapse;margin:.65rem 0;font-size:.78rem;color:#dce8f5}
+.ss-odds-table th{color:#94aac0;font-size:.7rem;font-weight:600;text-align:right;padding:.3rem .25rem}
+.ss-odds-table th:first-child,.ss-odds-table td:first-child{text-align:left}
+.ss-odds-table td{text-align:right;padding:.42rem .25rem;border-top:1px solid #23354d}
+.ss-card-details{border-top:1px solid #23354d;margin-top:.55rem;padding-top:.55rem;font-size:.78rem;color:#b7c8da}
+.ss-card-details>summary{cursor:pointer;font-weight:650;color:#c5d9e9;padding:.2rem 0}
+.ss-card-details[open]>summary{margin-bottom:.65rem}
+.ss-source-note{font-size:.7rem;color:#91a5bc;line-height:1.5;overflow-wrap:anywhere;margin:.45rem 0}
+.ss-card-details .ss-dk-quote{color:#c3d2e1;line-height:1.65;font-weight:400}
+.ss-card-details .ss-dk-quote>div:has(>b){margin-top:.65rem}
+.ss-card-details .ss-bot{margin-top:0;border-top:0;padding-top:0}
+.ss-match .ss-pick{background:#142c3b;border:0;border-radius:9px;padding:.7rem .8rem;margin:.7rem 0}
+.ss-match .ss-pickresult{font-size:.72rem}
+@media(max-width:600px){.ss-match{padding:.85rem}.ss-team strong{font-size:.9rem}.ss-team img{width:38px;height:38px}.ss-matchtop{font-size:.7rem;margin-bottom:.7rem}.ss-odds-table{font-size:.74rem}}
+.ss-team-odds{display:flex;justify-content:center;gap:.5rem;flex-wrap:wrap;color:#a9c0d3;font-size:.75rem;margin:.45rem 0}.ss-team-odds b{color:#e7f6ff}.ss-coach-summary{border-top:1px solid #263b52;margin-top:.7rem;padding-top:.6rem;font-size:.75rem;color:#b4c8d9}.ss-coach-summary>span{display:block;font-weight:600}.ss-coach-summary small{font-size:.68rem;margin:.25rem 0}.ss-coach-summary b{color:#79d9cd;font-size:.85rem}.ss-matchup{align-items:start}.ss-middle{align-self:start;padding-top:2.5rem}
 </style>
 """
 
@@ -120,7 +135,7 @@ def coach_ats_panel(coaches):
             return "No qualifying games"
         pct = f" · {r['pct']:.1f}%" if r['pct'] is not None else ""
         return f"{r['wins']}–{r['losses']}–{r['pushes']}{pct} · {r['games']} games"
-    parts = ['<div class="ss-dk-quote"><b>Head coach ATS · This matchup</b>']
+    parts = ['<details class="ss-card-details"><summary>More coach ATS splits</summary><div class="ss-dk-quote">']
     for c in coaches:
         parts.append(f"<div><b>{escape(c['team'])} · {escape(c['coach'] or 'Coach unavailable')}</b></div>")
         if not c['coach']:
@@ -132,7 +147,7 @@ def coach_ats_panel(coaches):
             parts.append(f"<div>{escape(sit['book'])} {sit['spread']:+g} defines this situation</div>")
         if not c['situations']:
             parts.append('<div>Favorite/underdog splits unavailable until a spread is available.</div>')
-    parts.append(f"<div>{escape(coaches[0]['seasons'])} regular season · Head-coaching games across all teams · W–L–P · Pushes excluded from %. Historical nflverse reference spreads; not sportsbook-specific. Prior dates only.</div></div>")
+    parts.append(f"<div>{escape(coaches[0]['seasons'])} regular season · Head-coaching games across all teams · W–L–P · Pushes excluded from %. Historical nflverse reference spreads; not sportsbook-specific. Prior dates only.</div></div></details>")
     return ''.join(parts)
 
 
@@ -164,33 +179,40 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
                          f'<span class="ss-ben-johnson-note">{team} favored by {points:g}'
                          ' · DraftKings only · experimental</span>')
         special_banner = '<div class="ss-coach-row">' + "".join(parts) + '</div>'
-    dk_banner = "" if complete or pending else '<div class="ss-dk-quote"><b>DraftKings odds</b> · Unavailable</div>'
-    if not complete and not pending and isinstance(dk_quote, dict) and dk_quote.get("source") == "DraftKings":
-        hs, aw = dk_quote.get("home_spread"), dk_quote.get("away_spread")
-        def show_spread(value):
-            return "Unavailable" if value is None else f"{float(value):+g}"
-        # Data returned by TheRundown may be delayed, even after refresh.
-        updated = escape(str(dk_quote.get("updated_at") or "timestamp unavailable"))
-        dk_banner = (f'<div class="ss-dk-quote"><b>DraftKings odds</b><div>Moneyline: '
-                     f'{escape(away)} {american_text(dk_quote.get("away_moneyline"))} · '
-                     f'{escape(home)} {american_text(dk_quote.get("home_moneyline"))}</div><div>Spread: '
-                     f'{escape(away)} {show_spread(aw)} · {escape(home)} {show_spread(hs)}'
-                     f'</div><div>{quote_time(dk_quote)}</div></div>')
-    fd_banner = ""
-    if not complete and not pending:
-        fd_banner = '<div class="ss-dk-quote"><b>FanDuel odds</b> · Unavailable</div>'
-        if isinstance(fd_quote, dict) and fd_quote.get("source") == "FanDuel":
-            def fd_spread(value):
-                return "Unavailable" if value is None else f"{float(value):+g}"
-            updated = escape(str(fd_quote.get("updated_at") or "timestamp unavailable"))
-            fd_banner = (
-                '<div class="ss-dk-quote"><b>FanDuel odds</b>'
-                f'<div>Moneyline: {escape(away)} {american_text(fd_quote.get("away_moneyline"))}'
-                f' · {escape(home)} {american_text(fd_quote.get("home_moneyline"))}</div>'
-                f'<div>Spread: {escape(away)} {fd_spread(fd_quote.get("away_spread"))}'
-                f' · {escape(home)} {fd_spread(fd_quote.get("home_spread"))}</div>'
-                f'<div>{quote_time(fd_quote)}</div></div>'
-            )
+    sources = []
+    quote = dk_quote if isinstance(dk_quote, dict) and dk_quote.get('source') == 'DraftKings' else None
+    show_odds = not complete and not pending
+    if show_odds:
+        sources.append(f'<div class="ss-source-note">DraftKings: {quote_time(quote)}</div>' if quote else
+                       '<div class="ss-source-note">DraftKings odds unavailable.</div>')
+    def team_display(side, abbreviation, profile):
+        markup = _team(abbreviation, brands, profile)
+        odds_line = ""
+        if show_odds:
+            if quote:
+                ml = american_text(quote.get(side + '_moneyline'))
+                spread = quote.get(side + '_spread')
+                handicap = '—' if spread is None else f'{float(spread):+g}'
+                odds_line = f'<div class="ss-team-odds"><span>ML <b>{ml if ml != "Unavailable" else "—"}</b></span><span>Spread <b>{handicap}</b></span></div>'
+            else:
+                odds_line = '<div class="ss-team-odds">Odds unavailable</div>'
+        markup = markup.replace('</strong>', '</strong>' + odds_line, 1)
+        coach = next((c for c in (coach_ats or []) if c['team'] == abbreviation), None)
+        if coach and coach.get('coach'):
+            situation = next((v for v in coach['situations'] if v['book'] == 'DraftKings'), None)
+            if situation:
+                r = situation['combined_record']
+                label = f"{coach['venue']} {situation['role'].lower()} ATS"
+            else:
+                r = coach['venue_record']
+                label = f"{coach['venue']} ATS · spread unavailable"
+            numbers = f"{r['wins']}–{r['losses']}" + (f"–{r['pushes']}" if r['pushes'] else '')
+            pct = f" · {r['pct']:.1f}%" if r['pct'] is not None else ''
+            value = numbers + pct if r['games'] else 'No qualifying games'
+            summary = (f'<div class="ss-coach-summary"><span>{escape(coach["coach"])}</span>'
+                       f'<small>{escape(label)}</small><b>{value}</b></div>')
+            markup = markup[:-6] + summary + '</div>'
+        return markup
     watch_banner = ""
     watch_caveat = ""
     if flagged:
@@ -208,11 +230,15 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
     # make Markdown treat the matchup or appended prediction as a code block.
     return (
         f'<article class="ss-match{highlight}">'
-        f'{special_banner}{watch_banner}{fd_banner}{dk_banner}'
+        f'{special_banner}{watch_banner}'
         f'<div class="ss-matchtop"><span>{day}</span><span>{status}{neutral}</span></div>'
-        f'<div class="ss-matchup">{_team(away, brands, ap)}<div class="ss-middle">{middle}</div>{_team(home, brands, hp)}</div>'
+        f'<div class="ss-matchup">{team_display("away", away, ap)}<div class="ss-middle">{middle}</div>{team_display("home", home, hp)}</div>'
+        f'<!--prediction-->'
+        f'<details class="ss-card-details"><summary>Team stats</summary>'
         f'<div class="ss-bot"><span>Previous weeks: <b>PPG {_num(ap,"ppg")} vs {_num(hp,"ppg")}</b></span><span>Allowed: <b>{_num(ap,"opp_ppg")} vs {_num(hp,"opp_ppg")}</b></span><span>Pass YPG: <b>{_num(ap,"pass_ypg")} vs {_num(hp,"pass_ypg")}</b></span><span>Rush YPG: <b>{_num(ap,"rush_ypg")} vs {_num(hp,"rush_ypg")}</b></span></div>'
-        f'{coach_ats_panel(coach_ats)}{watch_caveat}'
+        f'</details>'
+        f'{coach_ats_panel(coach_ats)}'
+        f'<details class="ss-card-details"><summary>Odds sources &amp; notes</summary>{"".join(sources)}{watch_caveat}</details>'
         f'</article>'
     )
 
@@ -227,8 +253,8 @@ def prediction_panel(prediction: pd.Series) -> str:
     return (f'<div class="ss-pick"><div class="ss-picktop">'
             f'<span class="ss-pickname">Model winner: {name}</span>'
             f'<span class="ss-prob">{prob:.1%} <span class="ss-pickresult">{result_text}</span></span>'
-            f'</div><div class="ss-picksmall">{note}</div>'
-            f'<div class="ss-picksmall">Research probability, not a sportsbook edge or guaranteed result.</div></div>')
+            f'</div><details class="ss-card-details"><summary>Prediction details</summary><div class="ss-picksmall">{note}</div>'
+            f'<div class="ss-picksmall">Research probability, not a sportsbook edge or guaranteed result.</div></details></div>')
 
 
 def _fmt_num(value: object, digits: int = 3, percent: bool = False) -> str:

@@ -655,6 +655,15 @@
         }
       ]
     },
+    "direct_providers": {
+      "58": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/providers/58?lang=en&region=us",
+        "id": "58",
+        "name": "ESPN BET",
+        "priority": 0
+      },
+      "100": "HTTP Error 404: Not Found"
+    },
     "core_odds": [
       {
         "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/401772940/competitions/401772940/odds/58?lang=en&region=us",
@@ -1642,6 +1651,15 @@
           }
         }
       ]
+    },
+    "direct_providers": {
+      "58": "HTTP Error 404: Not Found",
+      "100": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/providers/100?lang=en&region=us",
+        "id": "100",
+        "name": "Draft Kings",
+        "priority": 1
+      }
     },
     "core_odds": [
       {
@@ -2675,6 +2693,15 @@
           }
         }
       ]
+    },
+    "direct_providers": {
+      "58": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/providers/58?lang=en&region=us",
+        "id": "58",
+        "name": "ESPN BET",
+        "priority": 0
+      },
+      "100": "HTTP Error 404: Not Found"
     },
     "core_odds": [
       {
@@ -3711,6 +3738,15 @@
           }
         }
       ]
+    },
+    "direct_providers": {
+      "58": "HTTP Error 404: Not Found",
+      "100": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/providers/100?lang=en&region=us",
+        "id": "100",
+        "name": "Draft Kings",
+        "priority": 1
+      }
     },
     "core_odds": [
       {

@@ -20,8 +20,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Probe ESPN archive
-        run: python backtests/espn_line_probe.py
+      - name: Backtest confirmed ESPN opening and closing spreads
+        run: python backtests/historical_line_movement.py
       - name: Save research results
         run: |
           git config user.name "github-actions[bot]"

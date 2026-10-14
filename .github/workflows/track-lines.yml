@@ -1,6 +1,10 @@
 name: Sunday Slate line history
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/track-lines.yml'
   schedule:
     - cron: "17 */3 * * *"
   workflow_dispatch:

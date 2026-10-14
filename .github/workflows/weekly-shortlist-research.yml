@@ -1,0 +1,45 @@
+name: Sunday Slate weekly shortlist backtest
+
+on:
+  push:
+    branches: ["research/weekly-shortlist"]
+    paths:
+      - "research/weekly_shortlist.py"
+      - "tests/test_weekly_shortlist.py"
+      - ".github/workflows/weekly-shortlist-research.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sunday-shortlist-research
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: research/weekly-shortlist
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install existing dependencies
+        run: python -m pip install -r requirements.txt pytest
+      - name: Verify shortlist logic
+        run: python -m pytest -q tests/test_weekly_shortlist.py
+      - name: Evaluate historical NFL weekly shortlist selectors
+        run: python -m research.weekly_shortlist --output research/output/weekly_shortlist_results.json
+      - name: Preserve report in research branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/output/weekly_shortlist_results.json research/output/weekly_shortlist_results.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Save weekly shortlist backtest results"
+            git push origin HEAD:research/weekly-shortlist
+          fi

@@ -1,0 +1,49 @@
+name: Sunday Slate line history
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sunday-slate-line-history
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install collector dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Fetch saved history
+        run: git fetch origin line-history
+      - name: Capture sportsbook quotes
+        run: python -m scripts.capture_lines
+      - name: Save without triggering app redeploy
+        run: |
+          if [ ! -f /tmp/sunday-slate-lines.json ]; then
+            echo "No usable new quotes to save."
+            exit 0
+          fi
+          cp /tmp/sunday-slate-lines.json /tmp/history.json
+          git checkout -B line-history origin/line-history
+          mkdir -p data
+          cp /tmp/history.json data/line_history.json
+          git add data/line_history.json
+          if git diff --cached --quiet; then
+            echo "History unchanged."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Track DraftKings pregame line snapshots"
+          git push origin HEAD:line-history

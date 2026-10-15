@@ -114,7 +114,18 @@ def weekly_scores(games: pd.DataFrame, strategy: str) -> list[dict]:
         score.update({"season":int(season),"week":int(week),
                       "game_ids":[str(r["game_id"]) for r in chosen],
                       "teams":[str(r["predicted_winner"]) for r in chosen],
-                      "tiers":[r["tier"] for r in chosen]})
+                      "tiers":[r["tier"] for r in chosen],
+                      "picks":[{"game_id":str(r["game_id"]),
+                                "home":str(r["home_team"]), "away":str(r["away_team"]),
+                                "selected":str(r["predicted_winner"]),
+                                "tier":r["tier"],
+                                "elo_probability":round(float(r["confidence"]),4),
+                                "ppg_margin":(round(float(r["ppg_margin"]),2)
+                                              if r["ppg_margin"] is not None else None),
+                                "challenger_agrees":bool(r["challenger_agrees"]),
+                                "outcome":("W" if r["pick_result"]=="Correct"
+                                           else "L" if r["pick_result"]=="Incorrect" else "T")}
+                               for r in chosen]})
         results.append(score)
     return results
 

@@ -95,11 +95,19 @@ _STYLE = """
 .ss-slate-stat{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:#132137;border:1px solid #28405a;border-radius:10px;padding:.65rem .85rem}
 .ss-slate-stat-label{color:#a9bed2;font-size:.77rem;font-weight:650}
 .ss-slate-stat-value{color:#e8f8ff;font-size:1.14rem;font-weight:850;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ss-performance-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;margin:.45rem 0 1rem}
+.ss-performance-stat{display:flex;flex-direction:column;justify-content:center;gap:.15rem;min-width:0;padding:.72rem .85rem;background:#132137;border:1px solid #28405a;border-radius:10px}
+.ss-performance-label{color:#a9bed2;font-size:.76rem;font-weight:650}
+.ss-performance-value{color:#e8f8ff;font-size:1.18rem;font-weight:850;font-variant-numeric:tabular-nums;line-height:1.2}
 @media(max-width:760px){
 .ss-slate-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem;margin:.45rem 0 .75rem}
 .ss-slate-stat{padding:.5rem .65rem;min-height:42px}
 .ss-slate-stat-label{font-size:.69rem}
 .ss-slate-stat-value{font-size:.99rem}
+.ss-performance-stats{gap:.4rem;margin:.4rem 0 .75rem}
+.ss-performance-stat{padding:.52rem .6rem;min-height:54px}
+.ss-performance-label{font-size:.68rem}
+.ss-performance-value{font-size:1.04rem}
 }
 /* Keep the four Weekly Shortlist summary cells just as compact on a phone. */
 @media(max-width:600px){

@@ -90,6 +90,24 @@ _STYLE = """
 .ss-bot b{color:#e7f8ff}
 .ss-section{color:#c3d7e7;font-weight:750;font-size:.92rem;margin-top:1.2rem;margin-bottom:.5rem}
 .ss-foot{font-size:.78rem;color:#8ca5bb;margin-top:.6rem}
+/* Four top-of-slate numbers remain a single compact two-by-two grid on phones. */
+.ss-slate-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.55rem;margin:.55rem 0 1rem}
+.ss-slate-stat{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:#132137;border:1px solid #28405a;border-radius:10px;padding:.65rem .85rem}
+.ss-slate-stat-label{color:#a9bed2;font-size:.77rem;font-weight:650}
+.ss-slate-stat-value{color:#e8f8ff;font-size:1.14rem;font-weight:850;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:760px){
+.ss-slate-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem;margin:.45rem 0 .75rem}
+.ss-slate-stat{padding:.5rem .65rem;min-height:42px}
+.ss-slate-stat-label{font-size:.69rem}
+.ss-slate-stat-value{font-size:.99rem}
+}
+/* Keep the four Weekly Shortlist summary cells just as compact on a phone. */
+@media(max-width:600px){
+.ss-shortlist-summary-item{padding:.48rem .62rem}
+.ss-shortlist-summary-value{font-size:1.12rem;line-height:1.05}
+.ss-shortlist-summary-label{font-size:.7rem;margin-top:.15rem}
+.ss-shortlist-summary-note{font-size:.62rem;line-height:1.2;margin-top:.12rem}
+}
 div[data-testid="stMetric"]{background:#132137;border:1px solid #28405a;border-radius:12px;padding:.8rem 1rem}
 .ss-pick{border-top:1px solid #23354d;margin-top:.8rem;padding-top:.9rem}
 .ss-picktop{display:flex;gap:.6rem;align-items:center;justify-content:space-between;flex-wrap:wrap}

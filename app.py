@@ -314,7 +314,25 @@ if when != "All days":
     slate = slate[days.isin(["Tuesday", "Wednesday"] if when == "Other days" else [when])]
 
 if stage == "REG":
-    research_filter = st.selectbox("Matchup display", ["All matchups", "Weekly shortlist only", "Potential shortlist additions", "Game to Watch only", "Ben Johnson Special only", "Schottenheimer Favorite only", "Stefanski Mid-Range Favorite only", "Any Coaching Trend", "Experimental value research matches"], key="market_research_filter")
+    quick_view = st.segmented_control(
+        "View games",
+        ["All games", "Core picks", "Potential", "Value research", "Other flags"],
+        default="All games", key="matchup_quick_view",
+    )
+    research_filter = {
+        "All games": "All matchups",
+        "Core picks": "Weekly shortlist only",
+        "Potential": "Potential shortlist additions",
+        "Value research": "Experimental value research matches",
+    }.get(quick_view, "All matchups")
+    if quick_view == "Other flags":
+        research_filter = st.selectbox(
+            "Choose a research flag",
+            ["Game to Watch only", "Ben Johnson Special only",
+             "Schottenheimer Favorite only", "Stefanski Mid-Range Favorite only",
+             "Any Coaching Trend"],
+            key="matchup_advanced_research_filter",
+        )
     if research_filter == "Weekly shortlist only":
         slate = slate[slate["game_id"].astype(str).isin({p["game_id"] for p in shortlist_selection["core"]})]
     elif research_filter == "Potential shortlist additions":

@@ -28,6 +28,7 @@ from sunday_slate.coach_ats import coach_history, context as coach_ats_context, 
 from sunday_slate.espn_odds import ESPNFeedError, fetch_week, match_quotes
 from sunday_slate.draftkings import DKFeedError, fetch_date, match_games, utc_dates
 from sunday_slate.line_movement import load_history, change_for_game
+from sunday_slate.line_movement_table import weekly_tables
 from sunday_slate.shortlist import load_snapshot as load_shortlist_snapshot, shortlist as select_shortlist, snapshot_is_pregame
 from sunday_slate.shortlist_ui import render_shortlist
 
@@ -300,6 +301,43 @@ if watch_flags:
 if coach_markers:
     st.caption(f"★ {sum(len(markers) for markers in coach_markers.values())} DraftKings Coaching Trend(s) · "
                "Ben Johnson Special, Schottenheimer Favorite or Stefanski Mid-Range Favorite · research only.")
+
+# Compare all recorded pregame lines side-by-side rather than requiring a
+# user to open each individual matchup card. Quotes are book-specific and delayed.
+if stage == "REG" and season == now.year:
+    st.markdown('<div class="ss-section">Weekly line movement · DraftKings</div>',
+                unsafe_allow_html=True)
+    spread_table, ml_table, tracked_count, moved_count = weekly_tables(
+        slate, line_history, dk_by_game
+    )
+    st.caption(
+        f"{tracked_count} of {len(slate)} matchups tracked · "
+        f"{moved_count} with recorded changes · First captured is not the opening line. "
+        "Latest quotes may be delayed."
+    )
+    changed_only = st.toggle("Show changed lines only", value=False,
+                             key="line_movement_changed_only")
+    spread_tab, moneyline_tab = st.tabs(["Spread movement", "Moneyline movement"])
+    for tab, source_table in ((spread_tab, spread_table), (moneyline_tab, ml_table)):
+        with tab:
+            display_table = source_table
+            if changed_only:
+                display_table = display_table.loc[display_table["_changed"]]
+            if display_table.empty:
+                st.info("No recorded movement matches this filter yet.")
+            else:
+                st.dataframe(
+                    display_table.drop(columns="_changed"),
+                    hide_index=True,
+                    width="stretch",
+                    height=min(560, 36 * (len(display_table) + 1) + 6),
+                )
+    st.caption(
+        "The spread is the home team's handicap (negative means home favored). "
+        "A negative spread shift moves toward the home team. For moneylines, "
+        "'Shortened' means the team's implied probability increased. "
+        "Quotes come from ESPN-published DraftKings data, not live bettable prices."
+    )
 
 st.markdown('<div class="ss-section">Browse matchups</div>', unsafe_allow_html=True)
 filter1, filter2, filter3 = st.columns([2, 1.2, 1])

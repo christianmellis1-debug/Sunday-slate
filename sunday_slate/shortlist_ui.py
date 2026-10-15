@@ -1,4 +1,7 @@
-"""Compact, readable Sunday Slate weekly shortlist presentation."""
+"""Readable Sunday Slate weekly shortlist: ranked cards and honest records.
+
+Presentation only: selection criteria and frozen archived picks are unchanged.
+"""
 from __future__ import annotations
 
 from html import escape
@@ -6,6 +9,7 @@ from html import escape
 import pandas as pd
 import streamlit as st
 
+from sunday_slate.market import valid_american
 from sunday_slate.shortlist import HISTORICAL, LABELS, grade, historic_total, history_rate
 
 
@@ -16,11 +20,39 @@ def _label(team, brands):
 def _record(value):
     wins = int(value["wins"])
     losses = int(value["losses"])
-    return f"{wins}–{losses} · {history_rate(wins,losses)}"
+    return f"{wins}–{losses} · {history_rate(wins, losses)}"
 
 
-def _pick_card(row, slate, brands, dk_quotes=None, *, potential=False):
-    """User-friendly summary without exposing advanced-stat formulas or model internals."""
+def _metric(label: str, value: str, note: str = "") -> str:
+    return ('<div class="ss-shortlist-summary-item">'
+            f'<div class="ss-shortlist-summary-value">{escape(str(value))}</div>'
+            f'<div class="ss-shortlist-summary-label">{escape(label)}</div>'
+            f'<div class="ss-shortlist-summary-note">{escape(note)}</div>'
+            '</div>')
+
+
+def _chip(value: str, *, subtle: bool = False) -> str:
+    cls = "ss-shortlist-chip ss-shortlist-chip-muted" if subtle else "ss-shortlist-chip"
+    return f'<span class="{cls}">{escape(value)}</span>'
+
+
+def _reason(row: dict, potential: bool) -> str:
+    if potential:
+        explanations = {
+            "PPG projection disagrees": "Scoring outlook disagrees",
+            "Scoring confirmation unavailable": "Not enough scoring information",
+            "Below core confirmation threshold": "Not enough supporting evidence",
+        }
+        return explanations.get(row.get("reason"), "Does not meet the core-pick rules")
+    return {
+        1: "Strong rating advantage",
+        2: "Win forecast and projected scoring agree",
+        3: "Multiple forecasts favor the same team",
+    }.get(row.get("tier"), "Supported by the pregame research")
+
+
+def _pick_card(row, slate, brands, dk_quotes=None, *, potential=False, rank=None):
+    """A single compact card; never invent missing prices, kickoff or score data."""
     indexed = slate.set_index("game_id")
     g = indexed.loc[row["game_id"]] if row["game_id"] in indexed.index else None
     if isinstance(g, pd.DataFrame):
@@ -28,113 +60,147 @@ def _pick_card(row, slate, brands, dk_quotes=None, *, potential=False):
     opponent = row["away_team"] if row["team"] == row["home_team"] else row["home_team"]
     name = _label(row["team"], brands)
     opponent_name = _label(opponent, brands)
-    label = "Additional candidate · Not a core pick" if potential else LABELS[row["tier"]]
-    detail = ("Strong Elo forecast and challenger agreement; " + row["reason"]
-              if potential else
-              "Strong results-based team rating"
-              if row["tier"] == 1 else
-              "Elo and projected scoring margin both favor this team"
-              if row["tier"] == 2 else
-              "Elo, projected scoring and challenger agree")
-    if not potential and row["ppg_agrees"] and row["ppg_margin"] is not None:
-        detail += f" · scoring edge {abs(row['ppg_margin']):.1f} pts"
-    date = ""
-    status = ""
+    tier = row.get("tier") if not potential else None
+    label = "Potential addition" if potential else LABELS.get(tier, "Core pick")
+    tier_class = f" ss-shortlist-tier-{tier}" if tier in (1, 2, 3) else ""
+    if potential:
+        tier_class = " ss-shortlist-potential"
+
+    chips = [_chip(f'{row["probability"]:.1%} win chance')]
+    if row.get("ppg_agrees") and row.get("ppg_margin") is not None:
+        chips.append(_chip(f'{abs(row["ppg_margin"]):.1f}-point scoring edge'))
+    result = ""
     if g is not None:
         kickoff = pd.to_datetime(g.get("kickoff_ct"), utc=True, errors="coerce")
         if pd.notna(kickoff):
-            date = escape(kickoff.tz_convert("America/Chicago").strftime("%a, %b %-d · %-I:%M %p CT"))
+            chips.append(_chip(kickoff.tz_convert("America/Chicago").strftime("%a, %b %-d · %-I:%M %p CT"),
+                               subtle=True))
         if bool(g.get("completed", False)):
-            hs = g.get("home_score")
-            aw = g.get("away_score")
+            hs, aw = g.get("home_score"), g.get("away_score")
             if pd.notna(hs) and pd.notna(aw):
-                actual = row["home_team"] if float(hs) > float(aw) else row["away_team"] if float(aw) > float(hs) else None
-                status = " · Final: " + ("Correct" if actual == row["team"] else "Incorrect" if actual else "Tie")
+                actual = (row["home_team"] if float(hs) > float(aw)
+                          else row["away_team"] if float(aw) > float(hs) else None)
+                result = "Tie" if actual is None else "Correct" if actual == row["team"] else "Incorrect"
+    if result:
+        chips.append(_chip("Final · " + result, subtle=True))
+
+    # The quoted price is a delayed current DraftKings quote, never a claimed
+    # historical price or true opening line.
     quote = (dk_quotes or {}).get(row["game_id"]) or {}
     side = "home" if row["team"] == row["home_team"] else "away"
-    ml = quote.get(f"{side}_moneyline") if quote.get("source") == "DraftKings" else None
-    price = ""
-    if isinstance(ml, (int, float)) and not isinstance(ml, bool):
-        price = f' · DK moneyline {int(ml):+d} (delayed)'
+    odds = valid_american(quote.get(f"{side}_moneyline")) if quote.get("source") == "DraftKings" else None
+    if odds is not None and not result:
+        chips.append(_chip(f"DK {odds:+d} · delayed", subtle=True))
+
+    rank_html = (f'<span class="ss-shortlist-rank">#{int(rank)}</span>'
+                 if rank is not None and not potential else
+                 '<span class="ss-shortlist-rank">Research only</span>')
     return (
-        f'<div class="ss-shortlist-card{" ss-shortlist-potential" if potential else ""}">'
-        f'<div class="ss-shortlist-label">{escape(label)}</div>'
-        f'<div class="ss-shortlist-title">{name} <span>over {opponent_name}</span></div>'
-        f'<div class="ss-shortlist-confidence">Elo win estimate: {row["probability"]:.1%}</div>'
-        f'<div class="ss-shortlist-detail">{escape(detail)}</div>'
-        f'<div class="ss-shortlist-meta">{date}{escape(status)}{escape(price)}</div>'
-        '</div>'
+        f'<article class="ss-shortlist-card{tier_class}">'
+        f'<div class="ss-shortlist-top">{rank_html}'
+        f'<span class="ss-shortlist-pill">{escape(label)}</span></div>'
+        f'<div class="ss-shortlist-title">{name}</div>'
+        f'<div class="ss-shortlist-opponent">over {opponent_name}</div>'
+        f'<div class="ss-shortlist-chips">{"".join(chips)}</div>'
+        f'<div class="ss-shortlist-why"><b>Why it qualifies:</b> '
+        f'{escape(_reason(row, potential))}</div>'
+        '</article>'
     )
+
+
+def _history_table(rows: list[tuple[str, dict]]) -> str:
+    return ('<div class="ss-history-list">'
+            + "".join(
+                '<div class="ss-history-row">'
+                f'<span>{escape(label)}</span><b>{escape(_record(record))}</b>'
+                '</div>'
+                for label, record in rows
+            ) + '</div>')
 
 
 def render_shortlist(season: int, week: int, snapshot: dict | None, selected: dict,
                      slate: pd.DataFrame, brands: dict, dk_quotes: dict | None = None):
-    """Call this BEFORE matchup search filters; no extra data feeds are loaded."""
-    st.markdown('<div class="ss-section">🏈 Weekly Shortlist · Straight-up picks</div>',
-                unsafe_allow_html=True)
-    st.caption("Target: 3–5 high-conviction picks each week. Only pre-kickoff frozen forecasts "
-               "qualify for the core list. No games are forced into the shortlist.")
+    """Called before game filters. Uses frozen archives, not current outcomes."""
+    st.markdown(
+        '<div class="ss-shortlist-header">'
+        '<div class="ss-shortlist-eyebrow">Your weekly picks</div>'
+        '<div class="ss-shortlist-heading">Weekly Shortlist</div>'
+        '<div class="ss-shortlist-intro">A small selection of matchups with stronger supporting evidence.</div>'
+        '</div>', unsafe_allow_html=True)
+    core = selected.get("core", []) if snapshot is not None else []
+    candidates = selected.get("potential", []) if snapshot is not None else []
+    total = historic_total()
+    st.markdown(
+        '<div class="ss-shortlist-summary">'
+        + _metric("Core picks", str(len(core)) if snapshot is not None else "—",
+                  "Up to five per week" if snapshot is not None else "No saved picks")
+        + _metric("Potential additions", str(len(candidates)) if snapshot is not None else "—",
+                  "Research only")
+        + _metric("Historical record", f'{total["wins"]}–{total["losses"]}',
+                  "2023–25 reconstructed")
+        + _metric("Historical accuracy", history_rate(total["wins"], total["losses"]),
+                  "Straight-up, not ATS")
+        + '</div>', unsafe_allow_html=True)
 
     if snapshot is None:
-        st.info(f"No verified pregame shortlist is archived for {season} Week {week}. "
-                "Historical reconstructed results are available below. New shortlists "
-                "appear when a valid pregame weekly snapshot is saved.")
+        st.info(f"No verified pregame picks were archived for {season} Week {week}. "
+                "Historical results are available below; we won't create picks after kickoff.")
     else:
-        core = selected.get("core", [])
-        candidates = selected.get("potential", [])
         created = pd.Timestamp(snapshot["created_at_utc"])
         created_ct = created.tz_convert("America/Chicago").strftime("%b %-d, %Y · %-I:%M %p CT")
         completed = grade(core, slate)
-        a, b, c = st.columns(3)
-        a.metric("Core selections", f"{len(core)} / 5")
-        b.metric("Potential additions", len(candidates))
-        c.metric("Frozen pick results", f"{completed['wins']}–{completed['losses']}"
-                 if completed["wins"] + completed["losses"] else "Not graded")
-        st.caption(f"Frozen {created_ct} · Research-only selection · Separate from model-wide picks")
+        results = (f"{completed['wins']} correct · {completed['losses']} incorrect"
+                   if completed["wins"] + completed["losses"] else "Games not graded yet")
+        st.caption(f"Saved before kickoff · {created_ct} · {results}")
         if not core:
-            st.info("No matchup meets our core standards this week.")
+            st.info("No games meet the core-pick standards this week.")
         for pos in range(0, len(core), 2):
             cols = st.columns(2)
-            for col, item in zip(cols, core[pos:pos+2]):
+            for index, (col, item) in enumerate(zip(cols, core[pos:pos + 2]), start=pos + 1):
                 with col:
-                    st.markdown(_pick_card(item, slate, brands, dk_quotes), unsafe_allow_html=True)
+                    st.markdown(_pick_card(item, slate, brands, dk_quotes, rank=index),
+                                unsafe_allow_html=True)
+
         if candidates:
-            with st.expander(f"Potential additions · {len(candidates)} (research only)"):
-                st.caption("These games have at least 68% Elo confidence and agree with the "
-                           "frozen challenger, but failed the stronger core rules. They are "
-                           "NOT counted as recommended games; prior historical additions "
-                           "have a much weaker record.")
+            with st.expander(f"Potential additions ({len(candidates)}) · Research only"):
+                st.caption("These games show some promise but don't meet all the stronger "
+                           "requirements. They're not core picks.")
                 for item in candidates:
                     st.markdown(_pick_card(item, slate, brands, dk_quotes, potential=True),
                                 unsafe_allow_html=True)
         elif len(core) < 3:
-            st.caption("No credible secondary candidates meet the minimum research screen.")
-        st.caption("Before betting, verify the starting quarterback, injury report, "
-                   "current sportsbook line and price. Win probability is not betting value.")
+            st.caption("No additional games meet the minimum research requirements.")
+        st.caption("These are predictions, not guarantees. Before betting, confirm the "
+                   "starting quarterback, injuries and current sportsbook price.")
 
-    with st.expander("Historical shortlist record · 2023–2026"):
-        total = historic_total()
-        a, b, c = st.columns(3)
-        a.metric("2023–25 core picks", f"{total['wins']}–{total['losses']}")
-        b.metric("Core accuracy", history_rate(total["wins"], total["losses"]))
-        c.metric("Weeks with 3+ core picks", "40 / 54")
-        st.caption("Retrospective preweek-input reconstruction, not independently verified "
-                   "published betting picks. Straight-up wins only; no ATS or ROI claim.")
-        for year in (2023, 2024, 2025):
-            st.markdown(f"**{year}** · {_record(HISTORICAL['seasons'][year])}")
-        st.markdown("**2026 Weeks 1–5 (reconstructed)** · "
-                    + _record(HISTORICAL["seasons"][2026]))
-        st.markdown("**Historical record by selected core category (2023–2025)**")
-        for tier in (1, 2, 3):
-            st.markdown(f"{LABELS[tier]} · {_record(HISTORICAL['by_tier_2023_2025'][tier])}")
-        st.markdown("**Potential additions, evaluated separately:** "
-                    + _record(HISTORICAL["addition_2023_2025"])
-                    + " (2023–2025); "
-                    + _record(HISTORICAL["addition_2026_week1_to_5"])
-                    + " (2026 Weeks 1–5).")
-        st.caption("2026 historical numbers above cover only Weeks 1–5 and are not "
-                   "a continually updated full-season record. Later weeks use dated frozen "
-                   "snapshots; results are displayed on the matching week's cards. "
-                   "Historical filters were examined repeatedly, so future validation is essential.")
-        st.caption("Source: Sunday Slate weekly shortlist and near-miss backtests. "
-                   "The same games are not counted twice between core and candidates.")
+    with st.expander("Historical results · Seasons and pick categories"):
+        st.markdown(
+            '<div class="ss-shortlist-history-heading">2023–2025 · Core selections</div>'
+            + _metric("Record", f'{total["wins"]}–{total["losses"]}')
+            + '<div class="ss-history-list">'
+            '<div class="ss-history-row"><span>Weeks with 3+ picks</span>'
+            f'<b>{HISTORICAL["weeks_at_least_3_2023_2025"]} / '
+            f'{HISTORICAL["weeks_2023_2025"]}</b></div></div>',
+            unsafe_allow_html=True)
+        st.caption("Retrospective analysis using earlier-week data. These were not "
+                   "independently verified, publicly issued historical betting picks.")
+        st.markdown('<div class="ss-shortlist-history-heading">By season</div>'
+                    + _history_table([
+                        ("2023", HISTORICAL["seasons"][2023]),
+                        ("2024", HISTORICAL["seasons"][2024]),
+                        ("2025", HISTORICAL["seasons"][2025]),
+                        ("2026 · Weeks 1–5 only", HISTORICAL["seasons"][2026]),
+                    ]), unsafe_allow_html=True)
+        st.markdown('<div class="ss-shortlist-history-heading">By category · 2023–2025</div>'
+                    + _history_table([
+                        (LABELS[tier], HISTORICAL["by_tier_2023_2025"][tier])
+                        for tier in (1, 2, 3)
+                    ]), unsafe_allow_html=True)
+        st.markdown('<div class="ss-shortlist-history-heading">Potential additions · Separate from core</div>'
+                    + _history_table([
+                        ("2023–2025", HISTORICAL["addition_2023_2025"]),
+                        ("2026 · Weeks 1–5", HISTORICAL["addition_2026_week1_to_5"]),
+                    ]), unsafe_allow_html=True)
+        st.caption("Historical figures are fixed reconstructions, not a live season-to-date "
+                   "record. New results are graded only against saved pregame picks. "
+                   "Straight-up accuracy does not establish betting profitability.")

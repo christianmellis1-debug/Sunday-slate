@@ -42,6 +42,7 @@ class FakeStreamlit(types.ModuleType):
     def metric(self, *args, **kwargs): pass
     def caption(self, *args): pass
     def selectbox(self, _, options, **kwargs): return list(options)[kwargs.get("index", 0)]
+    def segmented_control(self, _, options, **kwargs): return kwargs.get("default") or list(options)[0]
     def text_input(self, *args, **kwargs): return ''
     def toggle(self, *args, **kwargs): return False
     def info(self, *args, **kwargs): pass

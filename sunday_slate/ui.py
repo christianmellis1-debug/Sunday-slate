@@ -36,6 +36,17 @@ _STYLE = """
 .ss-coach-flag{background:#3b2a58;color:#ecd9ff;border:1px solid #9d7dc9;border-radius:999px;padding:.28rem .6rem;font-weight:840}
 .ss-dk-quote{font-size:.76rem;color:#9ee7df;margin:.3rem 0 .7rem;font-weight:600}
 .ss-line-move{display:inline-block;border:1px solid #47718d;border-radius:7px;background:#142b3d;color:#b6e7fa;font-size:.72rem;font-weight:720;padding:.28rem .55rem;margin:.5rem 0 .25rem}
+.ss-shortlist-card{margin:.5rem 0 .85rem;padding:1.05rem 1.15rem;border:1px solid #376a7d;background:linear-gradient(135deg,#152e3e,#111d30);border-radius:14px;min-height:146px;box-shadow:inset 3px 0 0 #59cad2}
+.ss-shortlist-potential{border-color:#665672;background:linear-gradient(135deg,#272038,#151e30);box-shadow:inset 3px 0 0 #a28bc7}
+.ss-shortlist-label{font-size:.69rem;color:#8ee2e3;text-transform:uppercase;letter-spacing:.085em;font-weight:840;margin-bottom:.55rem}
+.ss-shortlist-potential .ss-shortlist-label{color:#d6bae9}
+.ss-shortlist-title{color:#f2f9fe;font-size:1.07rem;line-height:1.25;font-weight:820;margin:.1rem 0 .4rem}
+.ss-shortlist-title span{color:#a9c0d2;font-size:.86rem;font-weight:550}
+.ss-shortlist-confidence{color:#8be1cb;font-size:.85rem;font-weight:760}
+.ss-shortlist-detail{color:#c1d0df;font-size:.76rem;line-height:1.5;margin-top:.45rem}
+.ss-shortlist-meta{font-size:.7rem;color:#a2b6c9;margin-top:.5rem}
+@media(max-width:600px){.ss-shortlist-card{padding:.85rem .95rem;min-height:0}.ss-shortlist-title{font-size:.99rem}}
+
 
 .ss-matchtop{display:flex;justify-content:space-between;gap:.7rem;align-items:center;color:var(--ss-muted);font-size:.78rem;margin-bottom:.95rem}
 .ss-matchup{display:grid;grid-template-columns:1fr auto 1fr;gap:.6rem;align-items:center;text-align:center;}

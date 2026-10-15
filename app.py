@@ -147,24 +147,20 @@ if slate.empty:
 
 played = int(slate["completed"].sum())
 future = len(slate) - played
-# One compact, responsive grid rather than four Streamlit metric columns:
-# Streamlit stacks those metric columns vertically on narrow phone screens.
-overview = (
+# A native Streamlit table renders its own borders, header, and spacing.
+# This avoids detached HTML labels and works regardless of custom CSS loading.
+def summary_table(items):
+    values = pd.DataFrame([{label: str(value) for label, value in items}])
+    st.table(values.style.hide(axis="index"))
+
+
+st.markdown("**Week at a glance**")
+summary_table((
     ("Matchups", len(slate)),
     ("Completed", played),
     ("Not final", future),
     ("Season", season),
-)
-# st.html renders real HTML instead of passing custom cards through Markdown.
-st.html(
-    '<div class="ss-slate-stats" role="group" aria-label="Weekly NFL overview">'
-    + "".join(
-        f'<div class="ss-slate-stat"><span class="ss-slate-stat-label">{label}</span>'
-        f'<strong class="ss-slate-stat-value">{value}</strong></div>'
-        for label, value in overview
-    )
-    + '</div>'
-)
+))
 
 try:
     brands = branding_map(cached_brands())
@@ -262,21 +258,11 @@ if stage == "REG":
         track = summary(predictions, season)
         if track["games"]:
             st.markdown('<div class="ss-section">Model performance · ' + VERSION + '</div>', unsafe_allow_html=True)
-            performance_cards = (
+            summary_table((
                 ("Straight-up", f"{track['wins']}-{track['losses']}"),
                 ("Accuracy", f"{track['accuracy']:.1%}"),
                 ("Games graded", str(track["games"])),
-            )
-            st.html(
-                '<div class="ss-performance-stats" role="group" aria-label="Model performance">'
-                + "".join(
-                    f'<div class="ss-performance-stat">'
-                    f'<span class="ss-performance-label">{label}</span>'
-                    f'<strong class="ss-performance-value">{value}</strong></div>'
-                    for label, value in performance_cards
-                )
-                + '</div>'
-            )
+            ))
         with st.expander("Historical model validation (regular season)"):
             st.caption("Parameters selected on 2019–2022 regular seasons; 2023–2025 held out. Predictions for every week use earlier weeks only. Records are straight-up, not ATS or ROI.")
             for year in (2023, 2024, 2025, 2026):

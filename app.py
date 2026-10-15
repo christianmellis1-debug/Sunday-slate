@@ -28,6 +28,8 @@ from sunday_slate.coach_ats import coach_history, context as coach_ats_context, 
 from sunday_slate.espn_odds import ESPNFeedError, fetch_week, match_quotes
 from sunday_slate.draftkings import DKFeedError, fetch_date, match_games, utc_dates
 from sunday_slate.line_movement import load_history, change_for_game
+from sunday_slate.shortlist import load_snapshot as load_shortlist_snapshot, shortlist as select_shortlist, snapshot_is_pregame
+from sunday_slate.shortlist_ui import render_shortlist
 
 st.set_page_config(page_title="Sunday Slate | NFL Football Analytics", page_icon="🏈", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(css(), unsafe_allow_html=True)
@@ -264,6 +266,18 @@ if stage == "REG":
 else:
     st.caption("Postseason model picks are not published yet; the current backtest covers regular-season games only.")
 
+# Historical records and shortlist calculations use archived pregame research only:
+# no additional NFL data feeds, market calls or late-week refitting are needed.
+shortlist_selection = {"core": [], "potential": []}
+if stage == "REG":
+    frozen_shortlist = load_shortlist_snapshot(season, selected)
+    if not snapshot_is_pregame(frozen_shortlist, slate):
+        frozen_shortlist = None
+    if frozen_shortlist is not None:
+        shortlist_selection = select_shortlist(frozen_shortlist)
+    render_shortlist(season, selected, frozen_shortlist, shortlist_selection,
+                     slate, brands, dk_by_game)
+
 if stage == "REG" and picks:
     st.markdown('<div class="ss-section">DraftKings value research · experimental</div>', unsafe_allow_html=True)
     st.caption("All moneyline comparisons use DraftKings pregame odds exclusively. "
@@ -300,8 +314,12 @@ if when != "All days":
     slate = slate[days.isin(["Tuesday", "Wednesday"] if when == "Other days" else [when])]
 
 if stage == "REG":
-    research_filter = st.selectbox("Matchup display", ["All matchups", "Game to Watch only", "Ben Johnson Special only", "Schottenheimer Favorite only", "Stefanski Mid-Range Favorite only", "Any Coaching Trend", "Experimental value research matches"], key="market_research_filter")
-    if research_filter == "Game to Watch only":
+    research_filter = st.selectbox("Matchup display", ["All matchups", "Weekly shortlist only", "Potential shortlist additions", "Game to Watch only", "Ben Johnson Special only", "Schottenheimer Favorite only", "Stefanski Mid-Range Favorite only", "Any Coaching Trend", "Experimental value research matches"], key="market_research_filter")
+    if research_filter == "Weekly shortlist only":
+        slate = slate[slate["game_id"].astype(str).isin({p["game_id"] for p in shortlist_selection["core"]})]
+    elif research_filter == "Potential shortlist additions":
+        slate = slate[slate["game_id"].astype(str).isin({p["game_id"] for p in shortlist_selection["potential"]})]
+    elif research_filter == "Game to Watch only":
         slate = slate[slate["game_id"].astype(str).isin(watch_flags)]
     elif research_filter == "Ben Johnson Special only":
         slate = slate[slate["game_id"].astype(str).isin(coach_specials)]
@@ -408,11 +426,11 @@ else:
 with st.expander("About these stats and the current build"):
     st.markdown("""**Phase 3:** schedules, recorded scores, team branding, pregame comparisons, research-only market screens and results-based NFL probabilities. Team records and points-per-game are computed from previously completed regular-season games only. Passing and rushing yards per game come from the available earlier-week team summaries. A dash means the data was unavailable; it does not mean zero.
 
-**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. All displayed odds-based coaching flags and value research use *DraftKings-only* pregame prices through ESPN or TheRundown, not nflverse reference odds. Free-tier prices are delayed and are not confirmed executable quotes. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Quarterback projections and replacement-quality research can be loaded on upcoming current-season games. Depth charts alone do not establish confirmed starters, and no quarterback research changes the official Elo pick. Weather tiers, parlays, and official recommended picks remain unavailable until independently verified.
+**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. All displayed odds-based coaching flags and value research use *DraftKings-only* pregame prices through ESPN or TheRundown, not nflverse reference odds. Free-tier prices are delayed and are not confirmed executable quotes. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Quarterback projections and replacement-quality research can be loaded on upcoming current-season games. Depth charts alone do not establish confirmed starters, and no quarterback research changes the official Elo pick. Weather tiers and parlays remain unavailable pending independent validation. The Weekly Shortlist is a separate, research-qualified straight-up selection feature, not a promise of profitable betting returns. Historical shortlist records are retrospective, while new weekly picks require verified pregame archives.
 
 **Game to Watch:** An independent informational flag for non-neutral home teams with both stronger pregame offensive and defensive statistical ratings and an advantage magnitude from 0.25 up to (but not including) 0.50. Requires at least three earlier regular-season games and complete two-team weekly records. The flag does not depend on moneylines; it is not a tier or betting recommendation and never overrides the Elo prediction. Flags may change if historical source data is revised or incomplete previous-week results arrive.
 
-**Line movement:** Captures DraftKings-attributed pregame quotes from ESPN roughly every three hours, when the scheduled collector runs and quotes are published. The first captured quote is not necessarily the opening line. Changes in a team's spread or moneyline are shown separately with observation times; these are not live executable prices, and saved history cannot be reconstructed for earlier games. Historical snapshots remain in the dedicated line-history branch rather than Streamlit's temporary filesystem. Line movement does not change Elo picks or create betting tiers.
+**Weekly Shortlist:** Heavy Favorite requires Elo 75%+. Double Confirmation requires Elo 60%+, projected scoring advantage of at least seven points agreeing with Elo, and at least three prior games. Strong Consensus additions require Elo 65%+, scoring advantage of at least three points in agreement, challenger model agreement, and at least three prior games. A maximum of five Core Picks is shown, prioritized by category then confidence. Potential Additions require Elo 68%+ and challenger agreement but failed the stronger core rules, and are not counted as recommendations. Historical records cover reconstructed 2023–2025 inputs and a dated 2026 Weeks 1–5 cohort; upcoming selections use immutable pregame weekly archives. Missing archives do not trigger retroactive predictions. Straight-up accuracy does not establish moneyline betting value.\n\n**Line movement:** Captures DraftKings-attributed pregame quotes from ESPN roughly every three hours, when the scheduled collector runs and quotes are published. The first captured quote is not necessarily the opening line. Changes in a team's spread or moneyline are shown separately with observation times; these are not live executable prices, and saved history cannot be reconstructed for earlier games. Historical snapshots remain in the dedicated line-history branch rather than Streamlit's temporary filesystem. Line movement does not change Elo picks or create betting tiers.
 
 **DraftKings Coaching Trends:** Ben Johnson Special when his team is favored by 0.5–3; Schottenheimer Favorite when Dallas is favored by at least 0.5; Stefanski Mid-Range Favorite when his team is favored by 3.5–7. All require DraftKings-attributed prices; if those are absent, no flag appears. Coaching flags do not change Elo and are not proven betting edges.
 

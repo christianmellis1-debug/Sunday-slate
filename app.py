@@ -147,11 +147,24 @@ if slate.empty:
 
 played = int(slate["completed"].sum())
 future = len(slate) - played
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("Matchups", len(slate))
-m2.metric("Completed", played)
-m3.metric("Not final", future)
-m4.metric("Season", f"{season}")
+# One compact, responsive grid rather than four Streamlit metric columns:
+# Streamlit stacks those metric columns vertically on narrow phone screens.
+overview = (
+    ("Matchups", len(slate)),
+    ("Completed", played),
+    ("Not final", future),
+    ("Season", season),
+)
+st.markdown(
+    '<div class="ss-slate-stats" role="group" aria-label="Weekly NFL overview">'
+    + "".join(
+        f'<div class="ss-slate-stat"><span class="ss-slate-stat-label">{label}</span>'
+        f'<strong class="ss-slate-stat-value">{value}</strong></div>'
+        for label, value in overview
+    )
+    + '</div>',
+    unsafe_allow_html=True,
+)
 
 try:
     brands = branding_map(cached_brands())

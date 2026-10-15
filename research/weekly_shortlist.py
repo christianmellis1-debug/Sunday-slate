@@ -186,6 +186,24 @@ def markdown_report(report):
         lines.append(f"| {name} | {a['wins']}–{a['losses']} | {a['accuracy']}% | "
                      f"{a['average_picks_per_week']} | {a['weeks_with_3_plus']}/{a['weeks']} | "
                      f"{b['wins']}–{b['losses']} ({b['accuracy']}%) |")
+    lines.extend(["","## Previous 2026 weeks: exact selected games",
+                  "| Week | Pick | Elo | Tier | Result |",
+                  "|---:|---|---:|---|:---:|"])
+    previous=report["strategies"]["Tier 1–2 plus stronger Tier 3"]["weeks_2026"]
+    for week in previous:
+        if not week["picks"]:
+            lines.append(f"| {week['week']} | No qualifying games | — | — | — |")
+        for p in week["picks"]:
+            lines.append(f"| {week['week']} | {p['selected']} (vs. {p['away'] if p['selected']==p['home'] else p['home']}) | "
+                         f"{p['elo_probability']:.1%} | {p['tier']} | {p['outcome']} |")
+    lines.append("")
+    lines.extend(["## 2025 week-by-week benchmark",
+                  "| Week | Picks | Wins | Losses |",
+                  "|---:|---:|---:|---:|"])
+    last=report["strategies"]["Tier 1–2 plus stronger Tier 3"]["weekly_records_2023_2025"]
+    for week in last:
+        if week["season"]==2025:
+            lines.append(f"| {week['week']} | {week['games']} | {week['wins']} | {week['losses']} |")
     lines.extend(["","## Decision rules",
                   "Heavy Favorite: Elo >=75%. Double Confirmation: Elo >=60%, prior games >=3, scoring model agrees with projected margin >=7. Solid Consensus: Elo >=60%, scoring model agrees, prior games >=3.",
                   "The ranker prioritizes stronger tiers, then Elo probabilities. Optional filters require frozen challenger agreement or tighter Tier 3 confirmation.",

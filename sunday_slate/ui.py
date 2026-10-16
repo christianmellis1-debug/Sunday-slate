@@ -332,6 +332,7 @@ def game_card(game: pd.Series, brands: dict[str, dict], profiles: dict[str, dict
         f'<div class="ss-matchtop"><span>{day}</span><span>{status}{neutral}</span></div>'
         f'<div class="ss-matchup">{team_display("away", away, ap)}<div class="ss-middle">{middle}</div>{team_display("home", home, hp)}</div>'
         f'<!--prediction-->'
+        f'<!--availability-->'
         f'<details class="ss-card-details"><summary>Team stats</summary>'
         f'<div class="ss-bot"><span>Previous weeks: <b>PPG {_num(ap,"ppg")} vs {_num(hp,"ppg")}</b></span><span>Allowed: <b>{_num(ap,"opp_ppg")} vs {_num(hp,"opp_ppg")}</b></span><span>Pass YPG: <b>{_num(ap,"pass_ypg")} vs {_num(hp,"pass_ypg")}</b></span><span>Rush YPG: <b>{_num(ap,"rush_ypg")} vs {_num(hp,"rush_ypg")}</b></span></div>'
         f'</details>'

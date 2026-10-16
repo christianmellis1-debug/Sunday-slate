@@ -230,14 +230,18 @@ if stage == "REG" and selected >= 4:
         st.caption("Game to Watch screening requires complete prior-week NFL advanced statistics; missing data never counts as a match.")
 
 advanced = team_advanced_profiles(stats, season, selected) if stage == "REG" else {}
+# This feed is already used by the matchup cards; reuse it for QB replacement
+# comparisons instead of loading the same large player dataset a second time.
+qb_player_stats = pd.DataFrame()
 try:
-    qb_profiles = qb_recent_profiles(cached_player_stats(season), season, selected) if stage == "REG" else {}
+    if stage == "REG":
+        qb_player_stats = cached_player_stats(season)
+        qb_profiles = qb_recent_profiles(qb_player_stats, season, selected)
+    else:
+        qb_profiles = {}
 except FeedError:
     qb_profiles = {}
     st.caption("Quarterback research feed unavailable. No starter status is inferred.")
-
-injury_data = pd.DataFrame()
-injury_source_available = False
 
 picks = {}
 markets = {}
@@ -402,43 +406,34 @@ if stage == "REG":
 else:
     research_filter = "All matchups"
 
-load_injury_context = st.toggle("Load game-week injury reports (optional)", value=False, key="show_injury_reports") if stage == "REG" and season == now.year else False
-if load_injury_context:
+# Only fetch extra availability feeds when at least one upcoming current-season
+# matchup is visible. Caching keeps subsequent page visits and card rendering fast.
+availability_now_utc = pd.Timestamp.now(tz="UTC")
+availability_active = (
+    stage == "REG" and season == now.year and season >= 2025
+    and not slate.empty
+    and bool((~slate["completed"] & slate["kickoff_ct"].gt(availability_now_utc)).any())
+)
+injury_data = pd.DataFrame()
+injury_source_available = False
+qb_depth_data = pd.DataFrame()
+qb_confirmations = {}
+if availability_active:
     try:
         injury_data = cached_injuries(season)
         injury_source_available = not injury_data.empty
     except FeedError:
-        st.caption("Current game-week injury feed unavailable. No health conclusions will be drawn from missing entries.")
-
-# Expensive NFLverse historical depth feed is strictly opt-in, preserving the
-# existing fast Saturday startup and the fully validated Elo prediction flow.
-load_qb_confirmation = (
-    st.toggle("Show quarterback availability & replacement research (optional)",
-              value=False, key="show_qb_availability")
-    if stage == "REG" and season == now.year and season >= 2025 else False
-)
-qb_depth_data = pd.DataFrame()
-qb_injury_data = pd.DataFrame()
-qb_confirmations = {}
-if load_qb_confirmation:
+        pass  # The game card will show that this source is unavailable.
     try:
         qb_depth_data = cached_qb_depth(season)
     except FeedError:
-        st.caption("Dated QB depth-chart data unavailable. No starter projection is assumed.")
-    # Only source-dated injury rows qualify. Untimestamped injury summaries
-    # remain unavailable rather than being retroactively labeled pregame.
-    try:
-        qb_injury_data = cached_injuries(season)
-    except FeedError:
-        st.caption("Timestamped quarterback injury statuses unavailable; this does not imply a healthy QB.")
+        pass  # Never turn missing depth charts into an assumed starter.
     try:
         qb_confirmations = read_owner_confirmations(
-            st.secrets.get("QB_CONFIRMATIONS_JSON", ""))
+            st.secrets.get("QB_CONFIRMATIONS_JSON", "")
+        )
     except (AttributeError, KeyError, FileNotFoundError, RuntimeError, TypeError):
-        qb_confirmations = {}
-    st.caption("QB1 depth charts are unconfirmed projections. Official-source citations, if "
-               "provided by the app owner, are source-labeled and not independently checked. "
-               "The original NFL-ELO-1.0 picks and chances stay unchanged.")
+        pass
 
 st.caption(f"Showing {len(slate)} matchups · Times in CT · Prior-week football statistics · DraftKings odds")
 if stage == "REG" and season == now.year:
@@ -465,26 +460,37 @@ else:
                 panels = []
                 if prediction is not None:
                     html = html.replace("<!--prediction-->", prediction_panel(prediction))
-                    if load_qb_confirmation and not bool(game["completed"]):
-                        try:
-                            qb_info = qb_confirmation_context(
-                                game.to_dict(), all_games, qb_depth_data,
-                                cached_player_stats(season) if qb_depth_data is not None
-                                and not qb_depth_data.empty else pd.DataFrame(),
-                                qb_injury_data, qb_confirmations,
-                                pd.Timestamp.now(tz="UTC"))
-                            panels.append(qb_availability_panel(qb_info))
-                        except (ValueError, TypeError, KeyError, OverflowError):
-                            panels.append(qb_availability_panel(None))
                     panels.append(matchup_panel(str(game["home_team"]), str(game["away_team"]),
                                                 matchup_research(str(game["home_team"]), str(game["away_team"]), advanced, qb_profiles)))
                     panels.append(market_panel(str(game["home_team"]), str(game["away_team"]),
                                                 markets.get(str(game["game_id"])), str(game["game_id"]) in candidates))
-                    if load_injury_context and not bool(game["completed"]) and season == now.year:
-                        injury_research = reported_injuries(injury_data, season, selected, game["kickoff_ct"],
-                                                            (str(game["home_team"]), str(game["away_team"])))
-                        panels.append(injury_panel(str(game["home_team"]), str(game["away_team"]),
-                                                   injury_research, source_available=injury_source_available))
+                if availability_active and not bool(game["completed"]) and game["kickoff_ct"] > availability_now_utc:
+                    # A single collapsed row on the card replaces both page-level
+                    # switches. The two reports are available inside it on demand.
+                    injury_research = reported_injuries(
+                        injury_data, season, selected, game["kickoff_ct"],
+                        (str(game["home_team"]), str(game["away_team"]))
+                    )
+                    injury_html = injury_panel(
+                        str(game["home_team"]), str(game["away_team"]),
+                        injury_research, source_available=injury_source_available
+                    )
+                    try:
+                        qb_info = qb_confirmation_context(
+                            game.to_dict(), all_games, qb_depth_data,
+                            qb_player_stats, injury_data, qb_confirmations,
+                            availability_now_utc
+                        )
+                        qb_html = qb_availability_panel(qb_info)
+                    except (ValueError, TypeError, KeyError, IndexError, OverflowError, ArithmeticError):
+                        qb_html = qb_availability_panel(None)
+                    html = html.replace(
+                        "<!--availability-->",
+                        '<details class="ss-card-details"><summary>Injuries &amp; quarterback status</summary>'
+                        + injury_html + qb_html + "</details>"
+                    )
+                else:
+                    html = html.replace("<!--availability-->", "")
                 if panels:
                     html = html.replace("</article>", '<details class="ss-card-details"><summary>More matchup research</summary>' + "".join(panels) + "</details></article>")
                 st.markdown(html, unsafe_allow_html=True)
@@ -492,7 +498,7 @@ else:
 with st.expander("About these stats and the current build"):
     st.markdown("""**Phase 3:** schedules, recorded scores, team branding, pregame comparisons, research-only market screens and results-based NFL probabilities. Team records and points-per-game are computed from previously completed regular-season games only. Passing and rushing yards per game come from the available earlier-week team summaries. A dash means the data was unavailable; it does not mean zero.
 
-**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. All displayed odds-based coaching flags and value research use *DraftKings-only* pregame prices through ESPN or TheRundown, not nflverse reference odds. Free-tier prices are delayed and are not confirmed executable quotes. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Quarterback projections and replacement-quality research can be loaded on upcoming current-season games. Depth charts alone do not establish confirmed starters, and no quarterback research changes the official Elo pick. Weather tiers and parlays remain unavailable pending independent validation. The Weekly Shortlist is a separate, research-qualified straight-up selection feature, not a promise of profitable betting returns. Historical shortlist records are retrospective, while new weekly picks require verified pregame archives.
+**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. All displayed odds-based coaching flags and value research use *DraftKings-only* pregame prices through ESPN or TheRundown, not nflverse reference odds. Free-tier prices are delayed and are not confirmed executable quotes. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Quarterback projections and replacement-quality research are grouped with dated injury reports inside expandable upcoming-game cards. Depth charts alone do not establish confirmed starters, and no quarterback research changes the official Elo pick. Weather tiers and parlays remain unavailable pending independent validation. The Weekly Shortlist is a separate, research-qualified straight-up selection feature, not a promise of profitable betting returns. Historical shortlist records are retrospective, while new weekly picks require verified pregame archives.
 
 **Game to Watch:** An independent informational flag for non-neutral home teams with both stronger pregame offensive and defensive statistical ratings and an advantage magnitude from 0.25 up to (but not including) 0.50. Requires at least three earlier regular-season games and complete two-team weekly records. The flag does not depend on moneylines; it is not a tier or betting recommendation and never overrides the Elo prediction. Flags may change if historical source data is revised or incomplete previous-week results arrive.
 

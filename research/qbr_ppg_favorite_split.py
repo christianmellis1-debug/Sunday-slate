@@ -25,13 +25,13 @@ def payoff(price, win):
 
 def summarize(rs):
     n = len(rs)
-    wins = sum(r["winner"] == r["higher_qbr"] for r in rs)
+    wins = sum(r["winning_team"] == r["chosen_team"] for r in rs)
     ats = [r["cover"] for r in rs if r["cover"] is not None]
     nats = len(ats)
     aw = sum(ats)
     money = [r for r in rs if r["chosen_moneyline"] is not None and
              r["chosen_implied_no_vig"] is not None]
-    profits = sum(payoff(r["chosen_moneyline"], r["winner"] == r["higher_qbr"]) for r in money)
+    profits = sum(payoff(r["chosen_moneyline"], r["winning_team"] == r["chosen_team"]) for r in money)
     expected = sum(r["chosen_implied_no_vig"] for r in money)
     return {
         "games":n,"wins":wins,"losses":n-wins,
@@ -40,7 +40,7 @@ def summarize(rs):
         "ats_pct":round(100*aw/nats,2) if nats else None,
         "priced_games":len(money),
         "average_no_vig_implied_win_pct":round(100*expected/len(money),2) if money else None,
-        "observed_win_pct_same_priced_games":round(100*sum(r["winner"]==r["higher_qbr"] for r in money)/len(money),2) if money else None,
+        "observed_win_pct_same_priced_games":round(100*sum(r["winning_team"]==r["chosen_team"] for r in money)/len(money),2) if money else None,
         "net_units_flat_one_unit_stake":round(profits,3) if money else None,
         "roi_pct_at_reference_moneyline":round(100*profits/len(money),2) if money else None,
     }
@@ -87,7 +87,7 @@ def main():
         prob=(home_i if r["higher_qbr"]==r["home_team"] else away_i) / vig_sum if vig_sum else None
         hm=r["home_score"]-r["away_score"]
         selected_margin=hm if r["higher_qbr"]==r["home_team"] else -hm
-        spread_to_cover=(hm-line) if r["higher_qbr"]==r["home_team"] else (line-hm) if line is not None else None
+        spread_to_cover=((hm-line) if r["higher_qbr"]==r["home_team"] else (line-hm)) if line is not None else None
         cover=(spread_to_cover>0) if spread_to_cover is not None and abs(spread_to_cover)>1e-8 else None
         full.append({
             "season":r["season"],"week":r["week"],"game_id":r["game_id"],
@@ -96,7 +96,7 @@ def main():
             "favorite_status":pos,"spread_bucket":group,
             "closing_spread_absolute":mag,
             "selected_score_margin":selected_margin,
-            "won":r["winner"]==r["higher_qbr"],"cover":cover,
+            "won":r["winning_team"]==r["chosen_team"],"cover":cover,
             "chosen_moneyline":ml,"chosen_implied_no_vig":prob,
             "def_ppg_gap":r["ppg_gap"],"qbr_gap":r["qbr_gap"],
             "spread_line":line,

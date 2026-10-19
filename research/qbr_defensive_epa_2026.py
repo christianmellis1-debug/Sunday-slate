@@ -128,7 +128,7 @@ def main():
             selected = (h if hq > aq else a) if hq is not None and aq is not None and hq != aq else None
             he, ae = defense_rate(defense_state, h), defense_rate(defense_state, a)
             hp, ap = defense_rate(defense_state, h, "points"), defense_rate(defense_state, a, "points")
-            epa_pick = h if he < ae else a if he > ae else None if he is not None and ae is not None else None
+            epa_pick = (h if he < ae else a if he > ae else None) if he is not None and ae is not None else None
             # Avoid comparisons involving missing data.
             if he is None or ae is None:
                 epa_pick = None

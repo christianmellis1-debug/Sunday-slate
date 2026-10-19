@@ -191,6 +191,7 @@ def main():
         comparator.append({
             "season": r["season"],"week":r["week"],"game_id":r["game_id"],
             "chosen_team":fav,"pick_venue":"home" if fav==r["home_team"] else "away","winning_team":r["winner"],
+            "won":fav==r["winner"],"closing_spread_absolute":abs(float(line)),
             "spread_bucket":band,
             "chosen_moneyline":target,"chosen_implied_no_vig":no_vig,
             "cover":cover_margin > 0 if abs(cover_margin) > 1e-8 else None,

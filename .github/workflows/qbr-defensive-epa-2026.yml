@@ -1,0 +1,28 @@
+name: Sunday Slate 2026 defensive EPA and QBR audit
+on:
+  push:
+    paths:
+      - '.github/workflows/qbr-defensive-epa-2026.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  epa-qbr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements.txt
+      - name: Verify 2026 EPA plus QBR overlap
+        run: python -m research.qbr_defensive_epa_2026
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qbr-defensive-epa-2026
+          path: |
+            qbr_defensive_epa_2026.json
+            qbr_defensive_epa_2026.csv
+          retention-days: 30

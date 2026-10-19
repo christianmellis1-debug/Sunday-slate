@@ -2,6 +2,7 @@
 import json
 from collections import defaultdict
 from pathlib import Path
+from math import comb, erfc, sqrt
 import pandas as pd
 from research.qbr_ppg_historical_validation import build, rating
 from research.test_qbr_defense import load_games
@@ -91,7 +92,7 @@ def main():
         cover=(spread_to_cover>0) if spread_to_cover is not None and abs(spread_to_cover)>1e-8 else None
         full.append({
             "season":r["season"],"week":r["week"],"game_id":r["game_id"],
-            "chosen_team":r["higher_qbr"],"opponent":r["away_team"] if r["higher_qbr"]==r["home_team"] else r["home_team"],
+            "chosen_team":r["higher_qbr"],"pick_venue":"home" if r["higher_qbr"]==r["home_team"] else "away","opponent":r["away_team"] if r["higher_qbr"]==r["home_team"] else r["home_team"],
             "winning_team":r["winner"],
             "favorite_status":pos,"spread_bucket":group,
             "closing_spread_absolute":mag,
@@ -189,7 +190,7 @@ def main():
         cover_margin = home_margin - float(line) if fav == r["home_team"] else float(line) - home_margin
         comparator.append({
             "season": r["season"],"week":r["week"],"game_id":r["game_id"],
-            "chosen_team":fav,"winning_team":r["winner"],
+            "chosen_team":fav,"pick_venue":"home" if fav==r["home_team"] else "away","winning_team":r["winner"],
             "spread_bucket":band,
             "chosen_moneyline":target,"chosen_implied_no_vig":no_vig,
             "cover":cover_margin > 0 if abs(cover_margin) > 1e-8 else None,
@@ -217,6 +218,66 @@ def main():
         "triple_agree":summarize(triple_reference),
         "other_elo_favorites_same_stat_coverage":summarize([r for r in comparator if r["qbr_def_both_available"] and not r["triple_agree"]])
     }
+    # Primary test: is home/away a reliable distinction within 3–6.5?
+    # Two-sided Fisher exact uses observed W/L counts; no scipy dependency.
+    def exact_fisher(home, away):
+        a = sum(x["won"] for x in home)
+        b = len(home)-a
+        c = sum(x["won"] for x in away)
+        d = len(away)-c
+        n1=a+b; n2=c+d; total=n1+n2; success=a+c
+        if min(n1,n2)==0:
+            return None
+        def p(x):
+            return comb(success,x)*comb(total-success,n1-x)/comb(total,n1)
+        observed=p(a)
+        two_side=sum(
+            p(x) for x in range(max(0,n1-(total-success)),min(success,n1)+1)
+            if p(x)<=observed+1e-12)
+        diff=a/n1-c/n2
+        se=sqrt((a/n1)*(b/n1)/n1+(c/n2)*(d/n2)/n2)
+        return {"home_wins":a,"home_losses":b,
+                "road_wins":c,"road_losses":d,
+                "home_minus_road_win_pct_points":round(diff*100,2),
+                "fisher_two_sided_p":round(min(1.0,two_side),6),
+                "normal_approx_95pct_difference_interval_pp":
+                    [round((diff-1.96*se)*100,2),round((diff+1.96*se)*100,2)]}
+    def compare_subset(rs):
+        output = summarize(rs)
+        prices=[x["chosen_implied_no_vig"] for x in rs if x["chosen_implied_no_vig"] is not None]
+        wins=[int(x["won"]) for x in rs if x["chosen_implied_no_vig"] is not None]
+        if prices:
+            gap=(sum(wins)-sum(prices))/len(prices)
+            v=sum(x*(1-x) for x in prices)
+            z=(sum(wins)-sum(prices))/sqrt(v) if v>0 else None
+            output["observed_minus_no_vig_implied_pp"]=round(gap*100,2)
+            output["normal_approx_two_sided_p_vs_no_vig"]=round(erfc(abs(z)/sqrt(2)),5) if z is not None else None
+        output["avg_absolute_spread"]=round(sum(x["closing_spread_absolute"] for x in rs)/len(rs),3) if rs else None
+        return output
+    comparisons={}
+    for band in ("3–6.5", "0.5–2.5", "combined"):
+        selected=[r for r in retained if band=="combined" or r["spread_bucket"]==band]
+        home=[r for r in selected if r["pick_venue"]=="home"]
+        away=[r for r in selected if r["pick_venue"]=="away"]
+        controls=[r for r in comparator if (band=="combined" or r["spread_bucket"]==band) and r["qbr_def_both_available"]]
+        other=[r for r in controls if not r["triple_agree"]]
+        def venue_rows(rr):
+            return {v:compare_subset([r for r in rr if r["pick_venue"]==v])
+                    for v in ("home","away")}
+        comparisons[band]={
+            "triple_agreement":venue_rows(selected),
+            "fisher_home_vs_road":exact_fisher(home,away),
+            "year_by_venue":{
+                str(year):venue_rows([r for r in selected if r["season"]==year])
+                for year in (2023,2024,2025)
+            },
+            "elo_other_picks_with_same_qbr_ppg_coverage":venue_rows(other),
+            "elo_all_picks_with_same_qbr_ppg_coverage":venue_rows(controls)
+        }
+    focus["home_away"] = comparisons
+    print("HOME_AWAY_PRIMARY_RESEARCH_BEGIN")
+    print(json.dumps(comparisons,indent=2,allow_nan=False))
+    print("HOME_AWAY_PRIMARY_RESEARCH_END")
     summary["focus_under_7"] = focus
     print("FOCUS_UNDER_7_BEGIN")
     print(json.dumps(focus,indent=2,allow_nan=False))

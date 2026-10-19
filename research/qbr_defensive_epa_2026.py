@@ -203,6 +203,50 @@ def main():
     for lo,hi in ((0,5),(5,10),(10,20),(20,None)):
         subset=[r for r in agree if r["qbr_gap"] >= lo and (hi is None or r["qbr_gap"] < hi)]
         summary["qbr_gap"].append({"bucket": f"{lo} to {hi or 'plus'}", **group_info(subset)})
+    # Fair comparison after excluding Week 1: both metrics use only current-season
+    # defensive evidence and exactly the original QBR-eligible game universe.
+    recent = [r for r in eligible if r["week"] >= 2]
+    pp = [r for r in recent if r["old_ppg_agree"]]
+    ep = [r for r in recent if r["both_agree"]]
+    both = [r for r in recent if r["old_ppg_agree"] and r["both_agree"]]
+    only_ppg = [r for r in recent if r["old_ppg_agree"] and not r["both_agree"]]
+    only_epa = [r for r in recent if r["both_agree"] and not r["old_ppg_agree"]]
+    neither = [r for r in recent if not r["old_ppg_agree"] and not r["both_agree"]]
+
+    def cohort(rows):
+        return {"qbr_choice": measure(rows, "qbr_correct"),
+                "elo_choice": measure(rows, "elo_correct"),
+                "games": [{"week": r["week"], "game_id": r["game_id"],
+                           "qbr_choice": r["qbr_pick"], "winner": r["winner"],
+                           "qbr_correct": r["qbr_correct"],
+                           "elo_choice": r["elo_pick"],
+                           "elo_correct": r["elo_correct"]}
+                          for r in rows]}
+
+    summary["weeks_2_to_6_comparison"] = {
+        "all_qbr_eligible": cohort(recent),
+        "qbr_plus_points_allowed": cohort(pp),
+        "qbr_plus_defensive_epa": cohort(ep),
+        "both_defensive_metrics_agree_with_qbr": cohort(both),
+        "only_points_allowed_agrees_with_qbr": cohort(only_ppg),
+        "only_defensive_epa_agrees_with_qbr": cohort(only_epa),
+        "neither_defensive_metric_agrees_with_qbr": cohort(neither),
+        "weekly": [
+            {"week": w,
+             "qbr": cohort([r for r in recent if r["week"] == w])["qbr_choice"],
+             "points_allowed": cohort([r for r in pp if r["week"] == w])["qbr_choice"],
+             "defensive_epa": cohort([r for r in ep if r["week"] == w])["qbr_choice"]}
+            for w in range(2, 7)
+        ],
+    }
+    print("WEEKS_2_TO_6_COMPARISON_BEGIN", flush=True)
+    condensed = {key: {k: v for k, v in group.items() if k != "games"}
+                 for key, group in summary["weeks_2_to_6_comparison"].items()
+                 if key != "weekly"}
+    print(json.dumps({"groups": condensed,
+                      "weekly": summary["weeks_2_to_6_comparison"]["weekly"]},
+                     indent=2), flush=True)
+    print("WEEKS_2_TO_6_COMPARISON_END", flush=True)
     payload={"summary":summary,"games":rows}
     Path("qbr_defensive_epa_2026.json").write_text(json.dumps(payload,indent=2))
     pd.DataFrame(rows).to_csv("qbr_defensive_epa_2026.csv",index=False)

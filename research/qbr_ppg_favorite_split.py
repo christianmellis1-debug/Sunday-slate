@@ -96,7 +96,7 @@ def main():
             "favorite_status":pos,"spread_bucket":group,
             "closing_spread_absolute":mag,
             "selected_score_margin":selected_margin,
-            "won":r["winning_team"]==r["chosen_team"],"cover":cover,
+            "won":r["winner"]==r["higher_qbr"],"cover":cover,
             "chosen_moneyline":ml,"chosen_implied_no_vig":prob,
             "def_ppg_gap":r["ppg_gap"],"qbr_gap":r["qbr_gap"],
             "spread_line":line,

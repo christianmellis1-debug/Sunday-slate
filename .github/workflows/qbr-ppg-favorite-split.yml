@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - '.github/workflows/qbr-ppg-favorite-split.yml'
+      - 'research/qbr_ppg_favorite_split.py'
   workflow_dispatch:
 permissions:
   contents: read

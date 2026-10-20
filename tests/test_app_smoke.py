@@ -40,6 +40,9 @@ class FakeStreamlit(types.ModuleType):
     def expander(self, *_): return Column()
     def columns(self, widths): return [Column() for _ in (range(widths) if isinstance(widths,int) else widths)]
     def metric(self, *args, **kwargs): pass
+    def table(self, *args, **kwargs): pass
+    def dataframe(self, *args, **kwargs): pass
+    def tabs(self, labels): return [Column() for _ in labels]
     def caption(self, *args): pass
     def selectbox(self, _, options, **kwargs): return list(options)[kwargs.get("index", 0)]
     def segmented_control(self, _, options, **kwargs): return kwargs.get("default") or list(options)[0]

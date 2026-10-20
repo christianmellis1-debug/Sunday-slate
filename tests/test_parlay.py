@@ -32,7 +32,7 @@ def fixtures():
     picks = {
         "1": {"predicted_winner": "KC", "home_probability": .78},
         "2": {"predicted_winner": "BUF", "home_probability": .69},
-        "3": {"predicted_winner": "PHI", "home_probability": .74},
+        "3": {"predicted_winner": "PHI", "home_probability": .26},
         "4": {"predicted_winner": "NYJ", "home_probability": .56},
     }
     core = [

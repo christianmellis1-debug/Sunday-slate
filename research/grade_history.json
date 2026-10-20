@@ -4,6 +4,45 @@
       "season": 2026,
       "week": 6,
       "total": 14,
+      "graded": 14,
+      "pending_or_tie": 0,
+      "elo": {
+        "wins": 8,
+        "losses": 6
+      },
+      "challenger": {
+        "wins": 8,
+        "losses": 6
+      },
+      "tier2_threshold_comparison": {
+        "ppg_6_plus_candidate": {
+          "qualifiers": 1,
+          "graded": 1,
+          "wins": 1,
+          "losses": 0,
+          "pending": 0
+        },
+        "ppg_7_plus_original": {
+          "qualifiers": 1,
+          "graded": 1,
+          "wins": 1,
+          "losses": 0,
+          "pending": 0
+        },
+        "added_6_to_under_7": {
+          "qualifiers": 0,
+          "graded": 0,
+          "wins": 0,
+          "losses": 0,
+          "pending": 0
+        }
+      },
+      "snapshot_sha256": "e1a202c17690e02edd5d7aaa75546ce9efd4255c25f648a2f82593d57945b728"
+    },
+    {
+      "season": 2026,
+      "week": 7,
+      "total": 14,
       "graded": 0,
       "pending_or_tie": 14,
       "elo": {
@@ -16,18 +55,18 @@
       },
       "tier2_threshold_comparison": {
         "ppg_6_plus_candidate": {
-          "qualifiers": 1,
+          "qualifiers": 0,
           "graded": 0,
           "wins": 0,
           "losses": 0,
-          "pending": 1
+          "pending": 0
         },
         "ppg_7_plus_original": {
-          "qualifiers": 1,
+          "qualifiers": 0,
           "graded": 0,
           "wins": 0,
           "losses": 0,
-          "pending": 1
+          "pending": 0
         },
         "added_6_to_under_7": {
           "qualifiers": 0,
@@ -37,9 +76,9 @@
           "pending": 0
         }
       },
-      "snapshot_sha256": "e1a202c17690e02edd5d7aaa75546ce9efd4255c25f648a2f82593d57945b728"
+      "snapshot_sha256": "0bb87f70f7874c9b3d1a2b83447f52d1af86c6f6624aeccb669a8de70d29496e"
     }
   ],
-  "total_graded": 0,
+  "total_graded": 14,
   "note": "Grades only pregame archived predictions; snapshots are never rewritten."
 }

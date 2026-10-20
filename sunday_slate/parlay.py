@@ -65,7 +65,8 @@ def eligible_legs(
         if not gid or gid in seen:
             continue
         seen.add(gid)
-        if game.get("completed") is not False and game.get("completed") != False:
+        completed = game.get("completed")
+        if pd.isna(completed) or bool(completed):
             continue
         kickoff = _utc(game.get("kickoff_ct"))
         if kickoff is None or kickoff <= current:

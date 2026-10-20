@@ -1,7 +1,7 @@
 """Sunday Slate Phase 1: schedules and pregame comparison dashboard.
 
 Run: streamlit run app.py
-No picks, probabilities, or gambling ROI are calculated in this phase.
+Provides pregame NFL probabilities and research-only moneyline comparisons.
 """
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ from sunday_slate.line_movement import load_history, change_for_game
 from sunday_slate.line_movement_table import weekly_tables
 from sunday_slate.shortlist import load_snapshot as load_shortlist_snapshot, shortlist as select_shortlist, snapshot_is_pregame
 from sunday_slate.shortlist_ui import render_shortlist
+from sunday_slate.parlay_ui import render_parlay_finder
 
 st.set_page_config(page_title="Sunday Slate | NFL Football Analytics", page_icon="🏈", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(css(), unsafe_allow_html=True)
@@ -292,6 +293,8 @@ if stage == "REG":
         shortlist_selection = select_shortlist(frozen_shortlist)
     render_shortlist(season, selected, frozen_shortlist, shortlist_selection,
                      slate, brands, dk_by_game)
+    render_parlay_finder(slate, brands, dk_by_game, picks,
+                         frozen_shortlist, shortlist_selection, now=now)
 
 if stage == "REG" and picks:
     st.markdown('<div class="ss-section">DraftKings value research · experimental</div>', unsafe_allow_html=True)
@@ -498,7 +501,7 @@ else:
 with st.expander("About these stats and the current build"):
     st.markdown("""**Phase 3:** schedules, recorded scores, team branding, pregame comparisons, research-only market screens and results-based NFL probabilities. Team records and points-per-game are computed from previously completed regular-season games only. Passing and rushing yards per game come from the available earlier-week team summaries. A dash means the data was unavailable; it does not mean zero.
 
-**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. All displayed odds-based coaching flags and value research use *DraftKings-only* pregame prices through ESPN or TheRundown, not nflverse reference odds. Free-tier prices are delayed and are not confirmed executable quotes. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Quarterback projections and replacement-quality research are grouped with dated injury reports inside expandable upcoming-game cards. Depth charts alone do not establish confirmed starters, and no quarterback research changes the official Elo pick. Weather tiers and parlays remain unavailable pending independent validation. The Weekly Shortlist is a separate, research-qualified straight-up selection feature, not a promise of profitable betting returns. Historical shortlist records are retrospective, while new weekly picks require verified pregame archives.
+**Not live play-by-play:** nflverse schedules typically update with recorded results; don't assume that an unfinished game is at its current score. Straight-up model probabilities and historical grading are provided for regular-season games only. All displayed odds-based coaching flags and value research use *DraftKings-only* pregame prices through ESPN or TheRundown, not nflverse reference odds. Free-tier prices are delayed and are not confirmed executable quotes. The basic exploratory rule has not demonstrated consistent profitable returns. Optional game-week injury report status may appear when a dated source row is available; this is informational and does not adjust win probabilities. Quarterback projections and replacement-quality research are grouped with dated injury reports inside expandable upcoming-game cards. Depth charts alone do not establish confirmed starters, and no quarterback research changes the official Elo pick. Weather tiers remain unavailable pending independent validation. The Parlay Finder is exploratory only: it combines current DraftKings moneylines and either archived pregame core picks or week-frozen Elo favorites, not a validated parlay strategy. The Weekly Shortlist is a separate, research-qualified straight-up selection feature, not a promise of profitable betting returns. Historical shortlist records are retrospective, while new weekly picks require verified pregame archives.
 
 **Game to Watch:** An independent informational flag for non-neutral home teams with both stronger pregame offensive and defensive statistical ratings and an advantage magnitude from 0.25 up to (but not including) 0.50. Requires at least three earlier regular-season games and complete two-team weekly records. The flag does not depend on moneylines; it is not a tier or betting recommendation and never overrides the Elo prediction. Flags may change if historical source data is revised or incomplete previous-week results arrive.
 
